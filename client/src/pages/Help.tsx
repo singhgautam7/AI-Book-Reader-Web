@@ -1,4 +1,4 @@
-import { ExternalLink, Shield, Cpu, Cloud, Globe } from "lucide-react";
+import { ExternalLink, Shield, Cpu, Cloud, Globe, Linkedin, Github, Instagram, BookOpen, ListChecks, AudioLines, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -30,7 +30,9 @@ export default function Help() {
 
       {/* How to Use */}
       <section className="space-y-4">
-        <h2 className="text-2xl font-bold tracking-tight">How to Use</h2>
+        <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+            <ListChecks className="h-6 w-6" /> How to Use
+        </h2>
         <Card>
           <CardContent className="pt-6">
             <ol className="list-decimal list-inside space-y-2 ml-4">
@@ -46,7 +48,9 @@ export default function Help() {
 
       {/* TTS Providers */}
       <section className="space-y-6">
-        <h2 className="text-2xl font-bold tracking-tight">Supported TTS Providers</h2>
+        <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+            <AudioLines className="h-6 w-6" /> Supported TTS Providers
+        </h2>
 
         <div className="grid md:grid-cols-2 gap-6">
             {/* Browser Native */}
@@ -149,6 +153,51 @@ export default function Help() {
                     <li><strong>API Keys:</strong> Your API keys are stored securely in your browser's local storage. They are sent directly to the respective AI providers (Google, OpenAI, ElevenLabs) and never pass through any other server.</li>
                     <li><strong>Personal Use:</strong> This application is intended for personal use to consume your own content.</li>
                 </ul>
+            </CardContent>
+        </Card>
+      </section>
+
+      <div className="border-t my-8" />
+
+      {/* Developer */}
+      <section className="space-y-4 pb-8">
+        <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+            <User className="h-6 w-6" /> Developer
+        </h2>
+
+        <Card>
+            <CardContent className="pt-6 flex flex-col items-start space-y-6">
+                <div className="space-y-2">
+                    <h3 className="text-xl font-bold">Gautam Rajeev Singh</h3>
+                </div>
+
+                <div className="flex flex-wrap gap-4">
+                     <Button variant="outline" asChild className="gap-2">
+                        <a href="https://www.singhgautam.com/" target="_blank" rel="noopener noreferrer">
+                            <Globe className="h-4 w-4" /> Website
+                        </a>
+                     </Button>
+                     <Button variant="outline" asChild className="gap-2">
+                        <a href="https://www.linkedin.com/in/singhgautam7" target="_blank" rel="noopener noreferrer">
+                            <Linkedin className="h-4 w-4" /> LinkedIn
+                        </a>
+                     </Button>
+                     <Button variant="outline" asChild className="gap-2">
+                        <a href="https://github.com/singhgautam7" target="_blank" rel="noopener noreferrer">
+                            <Github className="h-4 w-4" /> GitHub
+                        </a>
+                     </Button>
+                     <Button variant="outline" asChild className="gap-2">
+                        <a href="https://medium.com/@singhgautam7" target="_blank" rel="noopener noreferrer">
+                            <BookOpen className="h-4 w-4" /> Medium
+                        </a>
+                     </Button>
+                     <Button variant="outline" asChild className="gap-2">
+                        <a href="https://www.instagram.com/singhgautam7" target="_blank" rel="noopener noreferrer">
+                            <Instagram className="h-4 w-4" /> Instagram
+                        </a>
+                     </Button>
+                </div>
             </CardContent>
         </Card>
       </section>
