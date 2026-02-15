@@ -29,11 +29,13 @@ export default function Reader() {
     // Load appropriate key based on provider
     if (providerType === "gemini") {
         apiKey = localStorage.getItem("gemini_api_key") || undefined;
-    } else if (providerType === "openai") { // NEW
+    } else if (providerType === "openai") {
         apiKey = localStorage.getItem("openai_api_key") || undefined;
+    } else if (providerType === "elevenlabs") { // NEW
+        apiKey = localStorage.getItem("elevenlabs_api_key") || undefined;
     }
 
-    // Attempt to decode if it looks like base64 (simple check/try-catch)
+    // Attempt to decode if it looks like base64
     if (apiKey) {
         try {
             // Check if it's base64 encoded (simple heuristic: no spaces, length % 4 == 0 usually,

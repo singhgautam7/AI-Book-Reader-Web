@@ -9,7 +9,7 @@ import { Progress } from "@/components/ui/progress";
 import { useBookStore } from "@/store/bookStore";
 import { TTSConfiguration } from "@/components/TTSConfiguration";
 import { BookHistoryTable } from "@/components/BookHistoryTable";
-import { GeminiTTSProvider, OpenAITTSProvider } from "@/lib/tts"; // Updated import
+import { GeminiTTSProvider, OpenAITTSProvider, ElevenLabsTTSProvider } from "@/lib/tts"; // Updated import
 import { toast } from "sonner";
 import { STRINGS } from "@/lib/constants/strings";
 import type { Book } from "@ai-book-reader/shared";
@@ -43,7 +43,7 @@ export default function Home() {
   const books = useBookStore((state) => state.books);
 
   // TTS State
-  const [provider, setProvider] = useState<"browser" | "gemini" | "openai">("browser"); // Updated type
+  const [provider, setProvider] = useState<"browser" | "gemini" | "openai" | "elevenlabs">("browser"); // Updated type
   const [apiKey, setApiKey] = useState("");
 
   // Upload State
@@ -54,17 +54,19 @@ export default function Home() {
     // Load settings on mount
   useEffect(() => {
     const storedProvider = localStorage.getItem("tts_provider");
-    if (storedProvider === "browser" || storedProvider === "gemini" || storedProvider === "openai") {
+    if (storedProvider === "browser" || storedProvider === "gemini" || storedProvider === "openai" || storedProvider === "elevenlabs") {
       setProvider(storedProvider);
     }
 
-    // Load appropriate key based on provider (or just load both/current? Logic gets tricky if we toggle)
-    // Actually better to load key when provider changes. But for initial load:
+    // Initial key load logic
     if (storedProvider === "gemini") {
          const k = localStorage.getItem("gemini_api_key");
          if(k) try { setApiKey(atob(k)); } catch { setApiKey(k); }
     } else if (storedProvider === "openai") {
          const k = localStorage.getItem("openai_api_key");
+         if(k) try { setApiKey(atob(k)); } catch { setApiKey(k); }
+    } else if (storedProvider === "elevenlabs") {
+         const k = localStorage.getItem("elevenlabs_api_key");
          if(k) try { setApiKey(atob(k)); } catch { setApiKey(k); }
     }
   }, []);
@@ -77,6 +79,10 @@ export default function Home() {
          else setApiKey("");
       } else if (provider === "openai") {
          const k = localStorage.getItem("openai_api_key");
+         if(k) try { setApiKey(atob(k)); } catch { setApiKey(k); }
+         else setApiKey("");
+      } else if (provider === "elevenlabs") {
+         const k = localStorage.getItem("elevenlabs_api_key");
          if(k) try { setApiKey(atob(k)); } catch { setApiKey(k); }
          else setApiKey("");
       } else {
@@ -130,6 +136,9 @@ export default function Home() {
     multiple: false,
   });
 
+  // ... inside Home component
+  const [isValidating, setIsValidating] = useState(false); // NEW State
+
   const handleProceed = async () => {
     setError(null);
 
@@ -142,59 +151,98 @@ export default function Home() {
     // Save Settings (Provider) - Always save immediately
     localStorage.setItem("tts_provider", provider);
 
-    if (provider === "gemini") {
-        if (!apiKey.trim()) {
-            setError(STRINGS.ERROR_GEMINI_KEY_MISSING);
-            return;
-        }
-
-        const { isValid, error: validationError } = await GeminiTTSProvider.validateAPIKey(apiKey.trim());
-
-        // Strict blocking: If validation fails for ANY reason (including rate limit), do not proceed.
-        if (!isValid) {
-            toast.error(validationError || STRINGS.ERROR_GEMINI_INVALID);
-            // Do NOT save invalid keys (except maybe rate limited ones? User said "in case api returns error... page should still be landing page")
-            // So we return here.
-            return;
-        } else {
-            toast.success(STRINGS.SUCCESS_GEMINI_VERIFIED);
-        }
+    // If browser, navigate immediately
+    if (provider === "browser") {
+        addBook(uploadedBook);
+        navigate(`/reader/${uploadedBook.id}`);
+        return;
     }
 
-    if (provider === "openai") {
-        if (!apiKey.trim()) {
-            setError(STRINGS.ERROR_OPENAI_KEY_MISSING);
-            return;
-        }
+    // START LOADING
+    setIsValidating(true);
 
-        const { isValid, error: validationError } = await OpenAITTSProvider.validateAPIKey(apiKey.trim()); // Needs import
-
-        if (!isValid) {
-            toast.error(validationError || STRINGS.ERROR_OPENAI_INVALID);
-            return;
-        } else {
-            toast.success(STRINGS.SUCCESS_OPENAI_VERIFIED);
-        }
-    }
-
-    // Save API keys securely (Simple Obfuscation)
     try {
         if (provider === "gemini") {
-            const encrypted = btoa(apiKey.trim());
-            localStorage.setItem("gemini_api_key", encrypted);
-            // Cleanup legacy
-            localStorage.removeItem("ai_reader_settings"); // This line was in the original gemini block, moving it here.
-        } else if (provider === "openai") {
-            const encrypted = btoa(apiKey.trim());
-            localStorage.setItem("openai_api_key", encrypted);
-        }
-    } catch (e) {
-        console.error("Failed to save API key", e);
-    }
+            if (!apiKey.trim()) {
+                setError(STRINGS.ERROR_GEMINI_KEY_MISSING);
+                setIsValidating(false);
+                return;
+            }
 
-    // Navigate
-    addBook(uploadedBook);
-    navigate(`/reader/${uploadedBook.id}`);
+            const { isValid, error: validationError } = await GeminiTTSProvider.validateAPIKey(apiKey.trim()); // Validate
+
+            if (!isValid) {
+                toast.error(validationError || STRINGS.ERROR_GEMINI_INVALID);
+                setIsValidating(false);
+                return;
+            } else {
+                toast.success(STRINGS.SUCCESS_GEMINI_VERIFIED);
+            }
+        }
+
+        if (provider === "openai") {
+            if (!apiKey.trim()) {
+                setError(STRINGS.ERROR_OPENAI_KEY_MISSING);
+                setIsValidating(false);
+                return;
+            }
+
+            const { isValid, error: validationError } = await OpenAITTSProvider.validateAPIKey(apiKey.trim());
+
+            if (!isValid) {
+                toast.error(validationError || STRINGS.ERROR_OPENAI_INVALID);
+                setIsValidating(false);
+                return;
+            } else {
+                toast.success(STRINGS.SUCCESS_OPENAI_VERIFIED);
+            }
+        }
+
+        if (provider === "elevenlabs") {
+            if (!apiKey.trim()) {
+                setError(STRINGS.ERROR_ELEVENLABS_KEY_MISSING);
+                setIsValidating(false);
+                return;
+            }
+
+            const { isValid, error: validationError } = await ElevenLabsTTSProvider.validateAPIKey(apiKey.trim());
+
+            if (!isValid) {
+                toast.error(validationError || STRINGS.ERROR_ELEVENLABS_INVALID);
+                setIsValidating(false);
+                return;
+            } else {
+                toast.success(STRINGS.SUCCESS_ELEVENLABS_VERIFIED);
+            }
+        }
+
+        // Save API keys securely (Simple Obfuscation)
+        try {
+            if (provider === "gemini") {
+                const encrypted = btoa(apiKey.trim());
+                localStorage.setItem("gemini_api_key", encrypted);
+                localStorage.removeItem("ai_reader_settings");
+            } else if (provider === "openai") {
+                const encrypted = btoa(apiKey.trim());
+                localStorage.setItem("openai_api_key", encrypted);
+            } else if (provider === "elevenlabs") {
+                const encrypted = btoa(apiKey.trim());
+                localStorage.setItem("elevenlabs_api_key", encrypted);
+            }
+        } catch (e) {
+            console.error("Failed to save API key", e);
+        }
+
+        // Navigate
+        addBook(uploadedBook);
+        navigate(`/reader/${uploadedBook.id}`);
+
+    } catch (err) {
+        console.error("Error during proceed:", err);
+        toast.error("An unexpected error occurred. Please try again.");
+    } finally {
+        setIsValidating(false);
+    }
   };
 
   return (
@@ -281,8 +329,16 @@ export default function Home() {
                     size="lg"
                     className="w-full"
                     onClick={handleProceed}
+                    disabled={isValidating}
                 >
-                    {STRINGS.PROCEED_BUTTON}
+                    {isValidating ? (
+                        <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            {STRINGS.PROCEED_BUTTON_LOADING}
+                        </>
+                    ) : (
+                        STRINGS.PROCEED_BUTTON
+                    )}
                 </Button>
             </div>
           </CardContent>

@@ -1,0 +1,203 @@
+import { ElevenLabsClient } from "elevenlabs";
+import type { TTSProvider } from "./types";
+import { toast } from "sonner";
+
+export class ElevenLabsTTSProvider implements TTSProvider {
+    private client: ElevenLabsClient;
+    private audioPool: HTMLAudioElement[] = [];
+    private currentAudio: HTMLAudioElement | null = null;
+    private rate: number = 1;
+    // Default Voice ID (Rachel is a common default, or we can use '21m00Tcm4TlvDq8ikWAM' -> Rachel)
+    // Let's use a standard expressive voice. "Jessica" or "Eric" are also good.
+    // Using '21m00Tcm4TlvDq8ikWAM' (Rachel) as a safe default.
+    private voiceId: string = "21m00Tcm4TlvDq8ikWAM";
+
+    constructor(apiKey: string) {
+        this.client = new ElevenLabsClient({
+            apiKey: apiKey,
+        });
+    }
+
+    static async validateAPIKey(apiKey: string): Promise<{ isValid: boolean; error?: string }> {
+        if (!apiKey?.trim()) return { isValid: false, error: "API key is empty" };
+
+        try {
+            const client = new ElevenLabsClient({ apiKey: apiKey });
+            // Lightweight validation: List voices (limit 1 to be fast)
+            await client.voices.getAll();
+            return { isValid: true };
+        } catch (error: any) {
+            console.error("ElevenLabs API Validation Error:", error);
+            let errorMessage = "Invalid ElevenLabs API key.";
+
+            // Check for specific API error message first
+            if (error?.body?.detail?.message) {
+                errorMessage = error.body.detail.message;
+            } else if (error?.body?.detail?.status) {
+                errorMessage = `ElevenLabs Error: ${error.body.detail.status}`;
+            } else if (error?.statusCode === 401) {
+                errorMessage = "Invalid ElevenLabs API key. Please check your key.";
+            } else if (error?.statusCode === 429) {
+                errorMessage = "ElevenLabs rate limit reached. Please try again later.";
+            }
+
+            return { isValid: false, error: errorMessage };
+        }
+    }
+
+    async play(text: string, onEnd?: () => void): Promise<void> {
+        try {
+            if (!text.trim()) {
+                onEnd?.();
+                return;
+            }
+
+            // ElevenLabs SDK returns a readable stream or buffer.
+
+            // Default model - changed to v2 for free tier compatibility
+            // We can make this dynamic later if needed
+            let modelId = "eleven_multilingual_v2";
+
+            const makeRequest = async (model: string) => {
+                return await this.client.textToSpeech.convert(this.voiceId, {
+                    model_id: model,
+                    text: text,
+                    voice_settings: {
+                        stability: 0.5,
+                        similarity_boost: 0.75,
+                    }
+                });
+            };
+
+            let audioStream;
+            try {
+                audioStream = await makeRequest(modelId);
+            } catch (error: any) {
+                // Check for deprecated model error and retry
+                const isDeprecated =
+                    error?.body?.detail?.status === "model_deprecated_free_tier" ||
+                    (error?.body?.detail?.message && error.body.detail.message.includes("deprecated"));
+
+                if (isDeprecated) {
+                    console.warn("ElevenLabs deprecated model detected. Switching to multilingual_v2.");
+                    toast.error("Selected ElevenLabs model is not available on the free tier. Switching to a supported model.");
+                    modelId = "eleven_multilingual_v2";
+                    audioStream = await makeRequest(modelId);
+                } else {
+                    throw error;
+                }
+            }
+
+            // Convert stream/buffer to Blob
+            const audioBuffer = await this.streamToBuffer(audioStream);
+            const blob = new Blob([audioBuffer as any], { type: "audio/mpeg" });
+            const url = URL.createObjectURL(blob);
+
+            const audio = new Audio(url);
+            // Apply speed - Note: ElevenLabs doesn't have a speed param in generation,
+            // so we rely on HTML5 Audio playbackRate.
+            audio.playbackRate = this.rate;
+
+            this.currentAudio = audio;
+            this.audioPool.push(audio);
+
+            audio.onended = () => {
+                URL.revokeObjectURL(url);
+                this.cleanupAudio(audio);
+                if (this.currentAudio === audio) {
+                    this.currentAudio = null;
+                }
+                onEnd?.();
+            };
+
+            audio.onerror = (e) => {
+                console.error("Audio playback error:", e);
+                toast.error("Error playing audio.");
+                URL.revokeObjectURL(url);
+                this.cleanupAudio(audio);
+                if (this.currentAudio === audio) {
+                    this.currentAudio = null;
+                }
+                onEnd?.();
+            };
+
+            await audio.play();
+
+        } catch (error: any) {
+            console.error("ElevenLabs TTS Error:", error);
+
+            let msg = "ElevenLabs speech generation failed.";
+
+            // Check for specific API error message first
+            if (error?.body?.detail?.message) {
+                msg = error.body.detail.message;
+            } else if (error?.body?.detail?.status) {
+                msg = `ElevenLabs Error: ${error.body.detail.status}`;
+            } else if (error?.statusCode === 401) {
+                msg = "Invalid ElevenLabs API key.";
+            } else if (error?.statusCode === 429) {
+                msg = "ElevenLabs quota or rate limit reached.";
+            }
+
+            toast.error(msg);
+            onEnd?.();
+        }
+    }
+
+    // Helper to consume the stream from SDK
+    private async streamToBuffer(stream: any): Promise<Uint8Array> {
+        const chunks: Uint8Array[] = [];
+        for await (const chunk of stream) {
+            chunks.push(chunk);
+        }
+
+        // Concatenate chunks
+        const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0);
+        const result = new Uint8Array(totalLength);
+        let offset = 0;
+        for (const chunk of chunks) {
+            result.set(chunk, offset);
+            offset += chunk.length;
+        }
+        return result;
+    }
+
+    pause(): void {
+        if (this.currentAudio) {
+            this.currentAudio.pause();
+        }
+    }
+
+    resume(): void {
+        if (this.currentAudio) {
+            this.currentAudio.play();
+        }
+    }
+
+    stop(): void {
+        if (this.currentAudio) {
+            this.currentAudio.pause();
+            this.currentAudio.currentTime = 0;
+            this.currentAudio = null;
+        }
+        this.audioPool.forEach(audio => {
+            audio.pause();
+            audio.src = "";
+        });
+        this.audioPool = [];
+    }
+
+    setRate(rate: number): void {
+        this.rate = rate;
+        if (this.currentAudio) {
+            this.currentAudio.playbackRate = rate;
+        }
+    }
+
+    private cleanupAudio(audio: HTMLAudioElement) {
+        const index = this.audioPool.indexOf(audio);
+        if (index > -1) {
+            this.audioPool.splice(index, 1);
+        }
+    }
+}
