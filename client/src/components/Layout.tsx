@@ -1,5 +1,5 @@
 import { Link, Outlet } from "react-router-dom";
-import { BookOpen, Moon, Sun } from "lucide-react";
+import { BookOpen, Moon, Sun, HelpCircle } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Toaster } from "sonner";
@@ -39,6 +39,11 @@ export default function Layout() {
             <span className="hidden sm:inline">AI Reader</span>
           </Link>
           <nav className="flex items-center gap-2">
+            <Button variant="ghost" size="icon" asChild>
+              <Link to="/help" aria-label="Help & Setup">
+                <HelpCircle className="h-5 w-5" />
+              </Link>
+            </Button>
             <Button variant="ghost" size="icon" onClick={toggleTheme}>
                 {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
             </Button>
