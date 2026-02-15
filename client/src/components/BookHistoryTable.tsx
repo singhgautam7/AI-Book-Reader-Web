@@ -6,7 +6,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Play, Trash2 } from "lucide-react";
 import type { Book } from "@ai-book-reader/shared";
 import { useNavigate } from "react-router-dom";
@@ -130,7 +130,7 @@ export function BookHistoryTable({ books }: BookHistoryTableProps) {
                             <AlertDialogAction onClick={(e) => {
                                 e.stopPropagation();
                                 confirmDelete();
-                            }} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+                            }} className={buttonVariants({ variant: "destructive" })}>Delete</AlertDialogAction>
                         </AlertDialogFooter>
                     </AlertDialogContent>
                   </AlertDialog>
