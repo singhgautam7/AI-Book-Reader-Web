@@ -7,6 +7,8 @@ import { Slider } from "@/components/ui/slider";
 import { Card } from "@/components/ui/card";
 import { Play, Pause, SkipBack, SkipForward, ArrowLeft } from "lucide-react";
 import type { TextChunk } from "@ai-book-reader/shared";
+import { createTTSProvider } from "@/lib/tts";
+import type { TTSProvider, TTSProviderType } from "@/lib/tts";
 
 export default function Reader() {
   const { bookId } = useParams<{ bookId: string }>();
@@ -17,14 +19,25 @@ export default function Reader() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [rate, setRate] = useState(1);
 
-  const speechRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const ttsProvider = useRef<TTSProvider | null>(null);
+
+  // Initialize TTS Provider
+  useEffect(() => {
+    const providerType = (localStorage.getItem("tts_provider") as TTSProviderType) || "browser";
+    const apiKey = localStorage.getItem("gemini_api_key") || undefined;
+    ttsProvider.current = createTTSProvider(providerType, apiKey);
+
+    return () => {
+        ttsProvider.current?.stop();
+    };
+  }, []);
 
   // Restore progress
   useEffect(() => {
     if (bookId && playbackProgress[bookId] !== undefined) {
         setCurrentChunkIndex(playbackProgress[bookId]);
     }
-  }, [bookId]);
+  }, [bookId, playbackProgress]);
 
   // Fetch chunks
   const { data: chunks, isLoading } = useQuery<TextChunk[]>({
@@ -37,38 +50,43 @@ export default function Reader() {
     enabled: !!bookId,
   });
 
-  // TTS Logic
+  // Handle Playback State Changes
   useEffect(() => {
-    if (isPlaying && chunks && chunks[currentChunkIndex]) {
-        playChunk(chunks[currentChunkIndex].content);
-    } else {
-        window.speechSynthesis.cancel();
-    }
-         return () => {
-        window.speechSynthesis.cancel();
-    };
-  }, [currentChunkIndex, isPlaying, chunks]);
+    if (!ttsProvider.current || !chunks) return;
 
-  const playChunk = (text: string) => {
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = rate;
-    utterance.onend = () => {
-        if (isPlaying) {
-             nextChunk();
+    if (isPlaying) {
+        const text = chunks[currentChunkIndex]?.content;
+        if (text) {
+             ttsProvider.current.setRate(rate);
+             ttsProvider.current.play(text, () => {
+                 // On end of chunk
+                 if (currentChunkIndex < chunks.length - 1) {
+                     const next = currentChunkIndex + 1;
+                     setCurrentChunkIndex(next);
+                     updateProgress(bookId!, next);
+                 } else {
+                     setIsPlaying(false);
+                 }
+             });
         }
-    };
-    speechRef.current = utterance;
-    window.speechSynthesis.speak(utterance);
-  };
+    } else {
+        ttsProvider.current.stop(); // Or pause? types say pause.
+        // Actually, for simple implementation, stop/cancel is safer to ensure no overlap.
+        // But if we want resume support, we should use pause/resume.
+        // BrowserTTSProvider implementation uses window.speechSynthesis.pause().
+        // Let's try pause? But restarting chunk is often better for "Read Aloud" UX than resuming mid-sentence if context is lost.
+        // For now let's use stop() which resets.
+        ttsProvider.current.pause();
+    }
+  }, [isPlaying, currentChunkIndex, chunks, bookId, updateProgress]);
+
+  // Apply rate changes
+  useEffect(() => {
+      ttsProvider.current?.setRate(rate);
+  }, [rate]);
 
   const togglePlay = () => {
-    if (isPlaying) {
-        window.speechSynthesis.cancel();
-        setIsPlaying(false);
-    } else {
-        setIsPlaying(true);
-    }
+    setIsPlaying(!isPlaying);
   };
 
   const nextChunk = () => {
@@ -77,8 +95,7 @@ export default function Reader() {
         const next = currentChunkIndex + 1;
         setCurrentChunkIndex(next);
         updateProgress(bookId!, next);
-    } else {
-        setIsPlaying(false);
+        // Effect will handle playing new chunk
     }
   };
 
@@ -87,6 +104,7 @@ export default function Reader() {
           const prev = currentChunkIndex - 1;
           setCurrentChunkIndex(prev);
           updateProgress(bookId!, prev);
+          // Effect will handle playing new chunk
       }
   };
 
@@ -137,11 +155,7 @@ export default function Reader() {
                         min={0.5}
                         max={2}
                         step={0.25}
-                        onValueChange={([val]) => {
-                            setRate(val);
-                            // If playing, restart current chunk with new rate
-                            if (isPlaying && chunks) playChunk(chunks[currentChunkIndex].content);
-                        }}
+                        onValueChange={([val]) => setRate(val)}
                     />
                  </div>
             </div>

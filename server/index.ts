@@ -1,22 +1,14 @@
-import express from "express";
-import cors from "cors";
-import multer from "multer";
 import path from "path";
 import fs from "fs";
 import { ParserService } from "./services/parser";
 import { ChunkingService } from "./services/chunker";
-import { Book, TextChunk } from "@ai-book-reader/shared";
+import type { Book, TextChunk } from "@ai-book-reader/shared";
 
-const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = parseInt(process.env.PORT || "3000");
 
 // Services
 const parserService = new ParserService();
 const chunkingService = new ChunkingService();
-
-// Middleware
-app.use(cors());
-app.use(express.json());
 
 // In-memory store for MVP
 const books: Record<string, Book> = {};
@@ -28,87 +20,129 @@ if (!fs.existsSync(UPLOADS_DIR)) {
     fs.mkdirSync(UPLOADS_DIR);
 }
 
-// Multer setup
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, UPLOADS_DIR);
-    },
-    filename: (req, file, cb) => {
-        // Sanitize filename
-        const safeName = file.originalname.replace(/[^a-z0-9.]/gi, '_');
-        cb(null, `${Date.now()}-${safeName}`);
-    },
-});
-
-const upload = multer({ storage });
+// CORS Helper
+function corsHeaders(origin: string | null) {
+    return {
+        "Access-Control-Allow-Origin": origin || "*",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type",
+    };
+}
 
 // Routes
-app.get("/health", (req, res) => {
-    res.json({ status: "ok", timestamp: new Date().toISOString() });
-});
+console.log(`Server running on http://localhost:${PORT}`);
 
-app.post("/api/upload", upload.single("file"), async (req, res) => {
-    try {
-        if (!req.file) {
-            return res.status(400).json({ error: "No file uploaded" });
+Bun.serve({
+    port: PORT,
+    async fetch(req) {
+        const url = new URL(req.url);
+        const method = req.method;
+        const headers = corsHeaders(req.headers.get("Origin"));
+
+        // Handle CORS Preflight
+        if (method === "OPTIONS") {
+            return new Response(null, { headers });
         }
 
-        const { path: filePath, mimetype, originalname } = req.file;
-
-        // 1. Parse Text
-        let text = "";
-        try {
-            text = await parserService.parseFile(filePath, mimetype);
-        } catch (e) {
-            console.error("Parsing error", e);
-            return res.status(500).json({ error: "Failed to parse file" });
+        // Health Check
+        if (method === "GET" && url.pathname === "/health") {
+            return new Response(JSON.stringify({ status: "ok", timestamp: new Date().toISOString() }), {
+                headers: { ...headers, "Content-Type": "application/json" }
+            });
         }
 
-        // 2. Chunk Text
-        const textChunks = chunkingService.chunkText(text);
+        // Upload Route
+        if (method === "POST" && url.pathname === "/api/upload") {
+            console.log("Received upload request");
+            try {
+                const formData = await req.formData();
+                const file = formData.get("book");
 
-        // 3. Create Book Object
-        const bookId = crypto.randomUUID();
-        const book: Book = {
-            id: bookId,
-            title: originalname.replace(/\.[^/.]+$/, ""),
-            uploadDate: new Date().toISOString(),
-            fileType: mimetype === "application/pdf" ? "pdf" : "epub",
-            totalChunks: textChunks.length,
-        };
+                if (!file || !(file instanceof File)) {
+                    console.error("No file in request");
+                    return new Response(JSON.stringify({ error: "No file uploaded" }), { status: 400, headers: { ...headers, "Content-Type": "application/json" } });
+                }
 
-        // 4. Store Data
-        books[bookId] = book;
-        bookChunks[bookId] = textChunks.map((content, index) => ({
-            id: crypto.randomUUID(),
-            bookId,
-            content,
-            index,
-        }));
+                console.log("File received:", file.name, file.type, file.size);
 
-        // Cleanup uploaded file (optional, but good for MVP to keep disk clean)
-        // fs.unlinkSync(filePath);
+                // Write to disk
+                const safeName = file.name.replace(/[^a-z0-9.]/gi, '_');
+                const filename = `${Date.now()}-${safeName}`;
+                const filePath = path.join(UPLOADS_DIR, filename);
 
-        res.json({ book, chunks: bookChunks[bookId] });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: "Internal server error" });
-    }
-});
+                console.log("Writing file to:", filePath);
+                await Bun.write(filePath, file);
 
-app.get("/api/books/:id", (req, res) => {
-    const book = books[req.params.id];
-    if (!book) return res.status(404).json({ error: "Book not found" });
-    res.json(book);
-});
+                // 1. Parse Text
+                let text = "";
+                try {
+                    text = await parserService.parseFile(filePath, file.type);
+                } catch (e) {
+                    console.error("Parsing error", e);
+                    try { fs.unlinkSync(filePath); } catch { }
+                    return new Response(JSON.stringify({ error: "Failed to parse file" }), { status: 500, headers: { ...headers, "Content-Type": "application/json" } });
+                }
 
-app.get("/api/books/:id/chunks", (req, res) => {
-    const chunks = bookChunks[req.params.id];
-    if (!chunks) return res.status(404).json({ error: "Book chunks not found" });
-    res.json(chunks);
-});
+                // 2. Chunk Text
+                const textChunks = chunkingService.chunkText(text);
 
-// Start server
-app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+                // 3. Create Book Object
+                const bookId = crypto.randomUUID();
+                const book: Book = {
+                    id: bookId,
+                    title: file.name.replace(/\.[^/.]+$/, ""),
+                    uploadDate: new Date().toISOString(),
+                    fileType: file.type === "application/pdf" ? "pdf" : "epub",
+                    totalChunks: textChunks.length,
+                };
+
+                // 4. Store Data
+                books[bookId] = book;
+                bookChunks[bookId] = textChunks.map((content, index) => ({
+                    id: crypto.randomUUID(),
+                    bookId,
+                    content,
+                    index,
+                }));
+
+                // Cleanup
+                try { fs.unlinkSync(filePath); } catch { }
+
+                return new Response(JSON.stringify({ book, chunks: bookChunks[bookId] }), {
+                    headers: { ...headers, "Content-Type": "application/json" }
+                });
+
+            } catch (error) {
+                console.error("Upload handler error:", error);
+                return new Response(JSON.stringify({ error: "Internal server error" }), { status: 500, headers: { ...headers, "Content-Type": "application/json" } });
+            }
+        }
+
+        // Get Book Meta
+        if (method === "GET" && url.pathname.startsWith("/api/books/") && !url.pathname.includes("/chunks")) {
+            const parts = url.pathname.split("/");
+            const bookId = parts[3];
+            if (!bookId) {
+                return new Response(JSON.stringify({ error: "Invalid book ID" }), { status: 400, headers: { ...headers, "Content-Type": "application/json" } });
+            }
+            const book = books[bookId];
+            if (!book) {
+                return new Response(JSON.stringify({ error: "Book not found" }), { status: 404, headers: { ...headers, "Content-Type": "application/json" } });
+            }
+            return new Response(JSON.stringify(book), { headers: { ...headers, "Content-Type": "application/json" } });
+        }
+
+        // Get Book Chunks
+        if (method === "GET" && url.pathname.match(/\/api\/books\/.*\/chunks/)) {
+            const parts = url.pathname.split("/");
+            const bookId = parts[3];
+            if (!bookId || !books[bookId]) {
+                return new Response(JSON.stringify({ error: "Book chunks not found" }), { status: 404, headers: { ...headers, "Content-Type": "application/json" } });
+            }
+            const chunks = bookChunks[bookId];
+            return new Response(JSON.stringify(chunks), { headers: { ...headers, "Content-Type": "application/json" } });
+        }
+
+        return new Response("Not Found", { status: 404, headers });
+    },
 });

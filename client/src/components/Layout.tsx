@@ -1,7 +1,8 @@
 import { Link, Outlet } from "react-router-dom";
-import { BookOpen, Settings as SettingsIcon, Moon, Sun } from "lucide-react";
+import { BookOpen, Moon, Sun } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import { Toaster } from "sonner";
 
 export default function Layout() {
   const [theme, setTheme] = useState<"light" | "dark" | "system">("system");
@@ -41,12 +42,6 @@ export default function Layout() {
             <Button variant="ghost" size="icon" onClick={toggleTheme}>
                 {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
             </Button>
-            <Link to="/settings">
-                <Button variant="ghost" size="icon">
-                    <SettingsIcon className="h-5 w-5" />
-                    <span className="sr-only">Settings</span>
-                </Button>
-            </Link>
           </nav>
         </div>
       </header>
@@ -54,8 +49,9 @@ export default function Layout() {
         <Outlet />
       </main>
       <footer className="border-t py-6 text-center text-sm text-muted-foreground">
-        <p>AI Book Reader - Private Personal Use Only</p>
+        <p>AI Book Reader - Personal Use Only</p>
       </footer>
+      <Toaster position="top-right" duration={5000} richColors closeButton />
     </div>
   );
 }
