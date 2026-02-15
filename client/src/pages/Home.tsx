@@ -9,8 +9,9 @@ import { Progress } from "@/components/ui/progress";
 import { useBookStore } from "@/store/bookStore";
 import { TTSConfiguration } from "@/components/TTSConfiguration";
 import { BookHistoryTable } from "@/components/BookHistoryTable";
-import { GeminiTTSProvider } from "@/lib/tts";
+import { GeminiTTSProvider, OpenAITTSProvider } from "@/lib/tts"; // Updated import
 import { toast } from "sonner";
+import { STRINGS } from "@/lib/constants/strings";
 import type { Book } from "@ai-book-reader/shared";
 
 // Simple API upload function
@@ -42,7 +43,7 @@ export default function Home() {
   const books = useBookStore((state) => state.books);
 
   // TTS State
-  const [provider, setProvider] = useState<"browser" | "gemini">("browser");
+  const [provider, setProvider] = useState<"browser" | "gemini" | "openai">("browser"); // Updated type
   const [apiKey, setApiKey] = useState("");
 
   // Upload State
@@ -50,22 +51,42 @@ export default function Home() {
   const [uploadedBook, setUploadedBook] = useState<Book | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Load settings on mount
+    // Load settings on mount
   useEffect(() => {
     const storedProvider = localStorage.getItem("tts_provider");
-    const storedKey = localStorage.getItem("gemini_api_key");
-    if (storedProvider === "browser" || storedProvider === "gemini") {
+    if (storedProvider === "browser" || storedProvider === "gemini" || storedProvider === "openai") {
       setProvider(storedProvider);
     }
-    if (storedKey) {
-      setApiKey(storedKey);
+
+    // Load appropriate key based on provider (or just load both/current? Logic gets tricky if we toggle)
+    // Actually better to load key when provider changes. But for initial load:
+    if (storedProvider === "gemini") {
+         const k = localStorage.getItem("gemini_api_key");
+         if(k) try { setApiKey(atob(k)); } catch { setApiKey(k); }
+    } else if (storedProvider === "openai") {
+         const k = localStorage.getItem("openai_api_key");
+         if(k) try { setApiKey(atob(k)); } catch { setApiKey(k); }
     }
   }, []);
+
+  // Effect to switch key input when provider changes
+  useEffect(() => {
+      if (provider === "gemini") {
+         const k = localStorage.getItem("gemini_api_key");
+         if(k) try { setApiKey(atob(k)); } catch { setApiKey(k); }
+         else setApiKey("");
+      } else if (provider === "openai") {
+         const k = localStorage.getItem("openai_api_key");
+         if(k) try { setApiKey(atob(k)); } catch { setApiKey(k); }
+         else setApiKey("");
+      } else {
+          setApiKey("");
+      }
+  }, [provider]);
 
   const { mutate: upload, isPending } = useMutation({
     mutationFn: uploadBook,
     onSuccess: (book) => {
-      addBook(book);
       setUploadedBook(book);
       setUploadProgress(100);
       setError(null);
@@ -114,50 +135,81 @@ export default function Home() {
 
     // Validation
     if (!uploadedBook) {
-      setError("Please upload a book first.");
+      setError(STRINGS.ERROR_UPLOAD_FIRST);
       return;
     }
 
+    // Save Settings (Provider) - Always save immediately
+    localStorage.setItem("tts_provider", provider);
+
     if (provider === "gemini") {
         if (!apiKey.trim()) {
-            setError("Please enter a Gemini API Key.");
+            setError(STRINGS.ERROR_GEMINI_KEY_MISSING);
             return;
         }
 
         const { isValid, error: validationError } = await GeminiTTSProvider.validateAPIKey(apiKey.trim());
+
+        // Strict blocking: If validation fails for ANY reason (including rate limit), do not proceed.
         if (!isValid) {
-            toast.error(validationError || "Invalid Gemini API key. Please check your key.");
+            toast.error(validationError || STRINGS.ERROR_GEMINI_INVALID);
+            // Do NOT save invalid keys (except maybe rate limited ones? User said "in case api returns error... page should still be landing page")
+            // So we return here.
             return;
         } else {
-            toast.success("Gemini API key verified successfully.");
+            toast.success(STRINGS.SUCCESS_GEMINI_VERIFIED);
         }
     }
 
-    // Save Settings
-    localStorage.setItem("tts_provider", provider);
-    if (provider === "gemini") {
-        localStorage.setItem("gemini_api_key", apiKey.trim());
-    } else {
-        localStorage.removeItem("gemini_api_key"); // Clear if switching back to browser
+    if (provider === "openai") {
+        if (!apiKey.trim()) {
+            setError(STRINGS.ERROR_OPENAI_KEY_MISSING);
+            return;
+        }
+
+        const { isValid, error: validationError } = await OpenAITTSProvider.validateAPIKey(apiKey.trim()); // Needs import
+
+        if (!isValid) {
+            toast.error(validationError || STRINGS.ERROR_OPENAI_INVALID);
+            return;
+        } else {
+            toast.success(STRINGS.SUCCESS_OPENAI_VERIFIED);
+        }
+    }
+
+    // Save API keys securely (Simple Obfuscation)
+    try {
+        if (provider === "gemini") {
+            const encrypted = btoa(apiKey.trim());
+            localStorage.setItem("gemini_api_key", encrypted);
+            // Cleanup legacy
+            localStorage.removeItem("ai_reader_settings"); // This line was in the original gemini block, moving it here.
+        } else if (provider === "openai") {
+            const encrypted = btoa(apiKey.trim());
+            localStorage.setItem("openai_api_key", encrypted);
+        }
+    } catch (e) {
+        console.error("Failed to save API key", e);
     }
 
     // Navigate
+    addBook(uploadedBook);
     navigate(`/reader/${uploadedBook.id}`);
   };
 
   return (
     <div className="container mx-auto py-8 space-y-12 max-w-5xl">
       <div className="text-center space-y-2">
-        <h1 className="text-4xl font-bold tracking-tight">AI Audiobook Reader</h1>
-        <p className="text-muted-foreground">Transform your local PDF & EPUB files into immersive audiobooks.</p>
+        <h1 className="text-4xl font-bold tracking-tight">{STRINGS.APP_TITLE}</h1>
+        <p className="text-muted-foreground">{STRINGS.APP_SUBTITLE}</p>
       </div>
 
       <div className="grid md:grid-cols-2 gap-8">
         {/* Left: Upload Section */}
         <Card className="flex flex-col">
           <CardHeader>
-            <CardTitle>1. Upload Book</CardTitle>
-            <CardDescription>Supported formats: PDF, EPUB (Max 100MB)</CardDescription>
+            <CardTitle>{STRINGS.UPLOAD_TITLE}</CardTitle>
+            <CardDescription>{STRINGS.UPLOAD_DESC}</CardDescription>
           </CardHeader>
           <CardContent className="flex-1 flex flex-col justify-center">
             <div
@@ -206,8 +258,8 @@ export default function Home() {
         {/* Right: TTS Configuration */}
         <Card className="flex flex-col">
           <CardHeader>
-            <CardTitle>2. Configure & Read</CardTitle>
-            <CardDescription>Select your preferred speech engine.</CardDescription>
+            <CardTitle>{STRINGS.CONFIG_TITLE}</CardTitle>
+            <CardDescription>{STRINGS.CONFIG_DESC}</CardDescription>
           </CardHeader>
           <CardContent className="flex-1 flex flex-col gap-6">
             <TTSConfiguration
@@ -230,7 +282,7 @@ export default function Home() {
                     className="w-full"
                     onClick={handleProceed}
                 >
-                    Proceed to Reader
+                    {STRINGS.PROCEED_BUTTON}
                 </Button>
             </div>
           </CardContent>
@@ -239,7 +291,7 @@ export default function Home() {
 
       {/* History Section */}
       <div className="space-y-4">
-        <h2 className="text-2xl font-bold tracking-tight">Your Library</h2>
+        <h2 className="text-2xl font-bold tracking-tight">{STRINGS.LIBRARY_TITLE}</h2>
         <BookHistoryTable books={books} />
       </div>
     </div>

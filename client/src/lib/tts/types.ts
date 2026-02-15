@@ -6,4 +6,4 @@ export interface TTSProvider { // Simple interface
     setRate(rate: number): void;
 }
 
-export type TTSProviderType = "browser" | "gemini";
+export type TTSProviderType = "browser" | "gemini" | "openai";

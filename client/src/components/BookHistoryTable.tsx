@@ -16,9 +16,23 @@ interface BookHistoryTableProps {
   books: Book[];
 }
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { useState } from "react";
+
 export function BookHistoryTable({ books }: BookHistoryTableProps) {
   const navigate = useNavigate();
   const removeBook = useBookStore((state) => state.removeBook);
+  const [bookToDelete, setBookToDelete] = useState<string | null>(null);
 
   const formatDate = (date: string | number) => {
     return new Date(date).toLocaleString(undefined, {
@@ -34,10 +48,10 @@ export function BookHistoryTable({ books }: BookHistoryTableProps) {
     navigate(`/reader/${bookId}`);
   };
 
-  const handleDelete = (e: React.MouseEvent, bookId: string) => {
-    e.stopPropagation();
-    if (confirm("Are you sure you want to delete this book?")) {
-      removeBook(bookId);
+  const confirmDelete = () => {
+    if (bookToDelete) {
+      removeBook(bookToDelete);
+      setBookToDelete(null);
     }
   };
 
@@ -85,15 +99,41 @@ export function BookHistoryTable({ books }: BookHistoryTableProps) {
                   >
                     <Play className="h-4 w-4" />
                   </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="text-destructive hover:text-destructive"
-                    onClick={(e) => handleDelete(e, book.id)}
-                    title="Delete"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+
+                  <AlertDialog open={bookToDelete === book.id} onOpenChange={(open) => !open && setBookToDelete(null)}>
+                    <AlertDialogTrigger asChild>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-destructive hover:text-destructive"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setBookToDelete(book.id);
+                            }}
+                            title="Delete"
+                        >
+                            <Trash2 className="h-4 w-4" />
+                        </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                This will permanently delete "{book.title}" from your library.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel onClick={(e) => {
+                                e.stopPropagation();
+                                setBookToDelete(null);
+                            }}>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={(e) => {
+                                e.stopPropagation();
+                                confirmDelete();
+                            }} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </div>
               </TableCell>
             </TableRow>

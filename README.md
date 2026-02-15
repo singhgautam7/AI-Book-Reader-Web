@@ -1,4 +1,4 @@
-# AI Audiobook Reader
+# AI Book Reader
 
 A modern, production-ready MVP web application for listening to books (PDF/EPUB) using AI Text-to-Speech. Built with **Bun**, **React**, and **Express**.
 

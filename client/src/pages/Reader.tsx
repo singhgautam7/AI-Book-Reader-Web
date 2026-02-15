@@ -24,7 +24,29 @@ export default function Reader() {
   // Initialize TTS Provider
   useEffect(() => {
     const providerType = (localStorage.getItem("tts_provider") as TTSProviderType) || "browser";
-    const apiKey = localStorage.getItem("gemini_api_key") || undefined;
+    let apiKey: string | undefined;
+
+    // Load appropriate key based on provider
+    if (providerType === "gemini") {
+        apiKey = localStorage.getItem("gemini_api_key") || undefined;
+    } else if (providerType === "openai") { // NEW
+        apiKey = localStorage.getItem("openai_api_key") || undefined;
+    }
+
+    // Attempt to decode if it looks like base64 (simple check/try-catch)
+    if (apiKey) {
+        try {
+            // Check if it's base64 encoded (simple heuristic: no spaces, length % 4 == 0 usually,
+            // but user might have pasted a raw key. A raw key usually starts with 'AIza' or 'sk-'...)
+            // OpenAI keys start with 'sk-'.
+            // If the key starts with 'sk-', it's likely raw. If not, try decoding.
+            // Actually, to be safe since we are writing it with btoa in Home.tsx, we should try atob.
+            apiKey = atob(apiKey);
+        } catch (e) {
+            // If decode fails, use as is (legacy or manual entry)
+            console.warn("Failed to decode API key, using raw value");
+        }
+    }
     ttsProvider.current = createTTSProvider(providerType, apiKey);
 
     return () => {
