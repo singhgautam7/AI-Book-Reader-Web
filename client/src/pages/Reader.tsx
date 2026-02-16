@@ -9,7 +9,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Play, Pause, SkipBack, SkipForward, ArrowLeft, Globe, Cpu, Cloud, Podcast, Loader2, Save as SaveIcon, Trash2, Settings as SettingsIcon } from "lucide-react";
 import type { TextChunk } from "@ai-book-reader/shared";
@@ -269,7 +268,7 @@ export default function Reader() {
                         {chunks?.map((chunk, idx) => (
                             <span
                                 key={chunk.id}
-                                className={`transition-colors duration-300 ${idx === currentChunkIndex ? "bg-primary/20 text-primary-foreground dark:text-foreground p-1 rounded" : "text-muted-foreground"}`}
+                                className={`transition-colors duration-200 rounded-sm p-1 ${idx === currentChunkIndex ? "bg-yellow-300/50 dark:bg-yellow-300/30 text-foreground shadow-sm" : "text-muted-foreground"}`}
                                 onClick={() => {
                                     setCurrentChunkIndex(idx);
                                     setIsPlaying(true);

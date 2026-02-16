@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Input } from "@/components/ui/input";
+
 import { Textarea } from "@/components/ui/textarea";
 import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -345,7 +345,7 @@ export default function Settings() {
                         <Label>Sample Narration Text</Label>
                         <Textarea
                             value={localSettings.sampleText}
-                            onChange={(e) => setLocalSettings(prev => ({ ...prev, sampleText: e.target.value }))}
+                            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setLocalSettings(prev => ({ ...prev, sampleText: e.target.value }))}
                             rows={6}
                             placeholder="Enter text to be used in Testing Mode..."
                         />
@@ -358,7 +358,7 @@ export default function Settings() {
         <div className="flex justify-between items-center mt-8">
              <AlertDialog>
                 <AlertDialogTrigger asChild>
-                    <Button variant="destructive" variant="outline" className="text-destructive border-destructive hover:bg-destructive/10">
+                    <Button variant="outline" className="text-destructive border-destructive hover:bg-destructive/10">
                         <Trash2 className="w-4 h-4 mr-2" />
                         Reset to Defaults
                     </Button>

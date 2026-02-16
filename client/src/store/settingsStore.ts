@@ -102,7 +102,7 @@ export const useSettingsStore = create<SettingsState>()(
                 geminiSettings: { ...state.geminiSettings, ...settings }
             })),
 
-            resetProviderSettings: (provider) => set((state) => {
+            resetProviderSettings: (provider) => set(() => {
                 switch (provider) {
                     case 'browser':
                         return { browserSettings: { voiceURI: null, rate: 1, pitch: 1 } };

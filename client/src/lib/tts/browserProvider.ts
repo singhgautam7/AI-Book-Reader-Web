@@ -4,7 +4,7 @@ export class BrowserTTSProvider implements TTSProvider {
     private utterance: SpeechSynthesisUtterance | null = null;
     private rate: number = 1;
 
-    async speak(text: string, options?: any): Promise<ArrayBuffer | null> {
+    async speak(_text: string, _options?: any): Promise<ArrayBuffer | null> {
         // Browser TTS doesn't give us the audio buffer easily
         return null;
     }
