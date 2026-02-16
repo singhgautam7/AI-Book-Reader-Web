@@ -92,8 +92,8 @@ export default function Home() {
 
   const { mutate: upload, isPending } = useMutation({
     mutationFn: uploadBook,
-    onSuccess: (book) => {
-      setUploadedBook(book);
+    onSuccess: (book, file) => {
+      setUploadedBook({ ...book, fileSize: file.size });
       setUploadProgress(100);
       setError(null);
     },
@@ -153,7 +153,7 @@ export default function Home() {
 
     // If browser, navigate immediately
     if (provider === "browser") {
-        addBook(uploadedBook);
+        addBook({ ...uploadedBook, provider: "browser" });
         navigate(`/reader/${uploadedBook.id}`);
         return;
     }
@@ -234,7 +234,7 @@ export default function Home() {
         }
 
         // Navigate
-        addBook(uploadedBook);
+        addBook({ ...uploadedBook, provider });
         navigate(`/reader/${uploadedBook.id}`);
 
     } catch (err) {

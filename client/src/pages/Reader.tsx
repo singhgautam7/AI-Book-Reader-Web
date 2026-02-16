@@ -5,7 +5,8 @@ import { useBookStore } from "@/store/bookStore";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Card } from "@/components/ui/card";
-import { Play, Pause, SkipBack, SkipForward, ArrowLeft } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Play, Pause, SkipBack, SkipForward, ArrowLeft, Globe, Cpu, Cloud, Podcast } from "lucide-react";
 import type { TextChunk } from "@ai-book-reader/shared";
 import { createTTSProvider } from "@/lib/tts";
 import type { TTSProvider, TTSProviderType } from "@/lib/tts";
@@ -142,7 +143,23 @@ export default function Reader() {
                 <ArrowLeft className="w-4 h-4" />
             </Button>
          </Link>
-         <h1 className="text-xl font-bold truncate">{book.title}</h1>
+         <div className="flex flex-col overflow-hidden">
+            <h1 className="text-xl font-bold truncate">{book.title}</h1>
+            <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">Reading with:</span>
+                <Badge variant="outline" className="gap-1 px-2 py-0 h-5 font-normal">
+                    {(() => {
+                        const p = (localStorage.getItem("tts_provider") || "browser");
+                        switch(p) {
+                            case "gemini": return <><Cpu className="h-3 w-3 text-blue-500" /> Gemini</>;
+                            case "openai": return <><Cloud className="h-3 w-3 text-green-500" /> OpenAI</>;
+                            case "elevenlabs": return <><Podcast className="h-3 w-3 text-purple-500" /> ElevenLabs</>;
+                            default: return <><Globe className="h-3 w-3 text-orange-500" /> Browser</>;
+                        }
+                    })()}
+                </Badge>
+            </div>
+         </div>
        </div>
 
        <div className="flex-1 overflow-y-auto border rounded-md p-6 bg-card prose dark:prose-invert max-w-none">

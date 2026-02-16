@@ -5,6 +5,8 @@ export type Book = {
     uploadDate: string;
     fileType: 'pdf' | 'epub';
     totalChunks: number;
+    provider?: 'browser' | 'gemini' | 'openai' | 'elevenlabs';
+    fileSize?: number;
 };
 
 export type TextChunk = {
