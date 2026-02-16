@@ -2,11 +2,14 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 import { useDropzone } from "react-dropzone";
-import { UploadCloud, Loader2, AlertCircle } from "lucide-react";
+import { UploadCloud, Loader2, AlertCircle, TestTube } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { useBookStore } from "@/store/bookStore";
+import { useSettingsStore } from "@/store/settingsStore";
 import { TTSConfiguration } from "@/components/TTSConfiguration";
 import { BookHistoryTable } from "@/components/BookHistoryTable";
 import { GeminiTTSProvider, OpenAITTSProvider, ElevenLabsTTSProvider } from "@/lib/tts"; // Updated import
@@ -137,13 +140,31 @@ export default function Home() {
   });
 
   // ... inside Home component
-  const [isValidating, setIsValidating] = useState(false); // NEW State
+  const { testingMode, setTestingMode } = useSettingsStore();
+  const [isValidating, setIsValidating] = useState(false);
+
+  // Sample book for testing
+  const SAMPLE_BOOK: Book = {
+      id: "testing-sample-id",
+      title: "Testing Mode - Sample Book",
+      uploadDate: new Date().toISOString(),
+      fileType: "epub", // Dummy type
+      totalChunks: 1, // Single chunk for sample
+      provider: "browser",
+      fileSize: 1024,
+  };
+
+  // We need to inject the sample content into the "chunks" query when in testing mode
+  // But Home.tsx just navigates to Reader. Reader fetches chunks from API.
+  // The API won't have the sample book.
+  // We need a way to pass the sample text to Reader or mock the API response.
+  // Since we don't have a real backend for "Testing Mode", we might need to modify Reader to handle "testing-sample-id" specially.
 
   const handleProceed = async () => {
     setError(null);
 
     // Validation
-    if (!uploadedBook) {
+    if (!uploadedBook && !testingMode) {
       setError(STRINGS.ERROR_UPLOAD_FIRST);
       return;
     }
@@ -153,8 +174,13 @@ export default function Home() {
 
     // If browser, navigate immediately
     if (provider === "browser") {
-        addBook({ ...uploadedBook, provider: "browser" });
-        navigate(`/reader/${uploadedBook.id}`);
+        if (testingMode) {
+             addBook({ ...SAMPLE_BOOK, provider: "browser" });
+             navigate(`/reader/${SAMPLE_BOOK.id}`);
+        } else if (uploadedBook) {
+             addBook({ ...uploadedBook, provider: "browser" });
+             navigate(`/reader/${uploadedBook.id}`);
+        }
         return;
     }
 
@@ -234,8 +260,11 @@ export default function Home() {
         }
 
         // Navigate
-        addBook({ ...uploadedBook, provider });
-        navigate(`/reader/${uploadedBook.id}`);
+        const bookToUse = testingMode ? SAMPLE_BOOK : uploadedBook;
+        if (bookToUse) {
+             addBook({ ...bookToUse, provider });
+             navigate(`/reader/${bookToUse.id}`);
+        }
 
     } catch (err) {
         console.error("Error during proceed:", err);
@@ -267,10 +296,21 @@ export default function Home() {
                 flex flex-col items-center justify-center gap-4 h-64
                 ${isDragActive ? "border-primary bg-primary/5" : "border-muted-foreground/25 hover:border-primary/50"}
                 ${uploadedBook ? "border-green-500/50 bg-green-500/5" : ""}
+                ${testingMode ? "opacity-50 pointer-events-none grayscale" : ""}
               `}
             >
-              <input {...getInputProps()} />
-              {uploadedBook ? (
+              <input {...getInputProps()} disabled={testingMode} />
+              {testingMode ? (
+                  <>
+                    <div className="h-12 w-12 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center text-orange-600 dark:text-orange-400">
+                        <TestTube className="h-6 w-6" />
+                    </div>
+                    <div className="space-y-1">
+                        <p className="font-medium">Testing Mode Active</p>
+                        <p className="text-xs text-muted-foreground">Using built-in sample text</p>
+                    </div>
+                  </>
+              ) : uploadedBook ? (
                  <>
                     <div className="h-12 w-12 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center text-green-600 dark:text-green-400">
                         <UploadCloud className="h-6 w-6" />
@@ -301,6 +341,15 @@ export default function Home() {
               )}
             </div>
           </CardContent>
+           <div className="px-6 pb-6 pt-0">
+               <div className="flex items-center space-x-2 border-t pt-4">
+                  <Switch id="testing-mode" checked={testingMode} onCheckedChange={setTestingMode} />
+                  <div className="flex flex-col">
+                      <Label htmlFor="testing-mode" className="font-medium cursor-pointer">Enable Testing Mode</Label>
+                      <span className="text-xs text-muted-foreground">Use sample text instead of uploading a file.</span>
+                  </div>
+               </div>
+           </div>
         </Card>
 
         {/* Right: TTS Configuration */}
@@ -339,6 +388,7 @@ export default function Home() {
                     ) : (
                         STRINGS.PROCEED_BUTTON
                     )}
+                    {testingMode && !isValidating && " (Test)"}
                 </Button>
             </div>
           </CardContent>

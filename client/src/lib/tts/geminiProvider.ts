@@ -40,11 +40,10 @@ export class GeminiTTSProvider implements TTSProvider {
         }
     }
 
-    async play(text: string, onEnd?: () => void) {
-        if (!text.trim()) {
-            onEnd?.();
-            return;
-        }
+    async speak(text: string, options?: any): Promise<ArrayBuffer | null> {
+        if (!text.trim()) return null;
+
+        const voiceName = options?.voiceName || "Puck";
 
         try {
             const response = await this.client.models.generateContent({
@@ -56,20 +55,48 @@ export class GeminiTTSProvider implements TTSProvider {
                 config: {
                     responseModalities: ['AUDIO'],
                     speechConfig: {
-                        voiceConfig: { prebuiltVoiceConfig: { voiceName: "Puck" } }
+                        voiceConfig: { prebuiltVoiceConfig: { voiceName: voiceName } }
                     }
                 }
             });
 
             const audioData = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+            if (!audioData) return null;
 
-            if (!audioData) {
+            // Decode base64 to ArrayBuffer
+            const binaryString = atob(audioData);
+            const bytes = new Uint8Array(binaryString.length);
+            for (let i = 0; i < binaryString.length; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+            return bytes.buffer;
+
+        } catch (error) {
+            console.error("Gemini Speak Error:", error);
+            throw error;
+        }
+    }
+
+    async play(text: string, options?: any, onEnd?: () => void) {
+        if (!text.trim()) {
+            onEnd?.();
+            return;
+        }
+
+        try {
+            const safeOptions = {
+                voiceName: options?.voiceName || "Puck"
+            };
+
+            const audioBuffer = await this.speak(text, safeOptions);
+
+            if (!audioBuffer) {
                 toast.error("No audio returned from Gemini.");
                 onEnd?.();
                 return;
             }
 
-            const audioBlob = this.base64ToBlob(audioData, "audio/mp3");
+            const audioBlob = new Blob([audioBuffer], { type: "audio/mp3" });
             const audioUrl = URL.createObjectURL(audioBlob);
             const audio = new Audio(audioUrl);
 

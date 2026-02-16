@@ -45,57 +45,86 @@ export class ElevenLabsTTSProvider implements TTSProvider {
         }
     }
 
-    async play(text: string, onEnd?: () => void): Promise<void> {
+    async speak(text: string, options?: any): Promise<ArrayBuffer | null> {
+        if (!text.trim()) return null;
+
+        let voiceId = options?.voiceId || this.voiceId;
+        let modelId = options?.modelId || "eleven_multilingual_v2";
+
+        // Preemptive fix for deprecated free tier models
+        // The eleven_monolingual_v1 model is deprecated for free users.
+        // We force upgrade to v2 to avoid "subscription_required" errors.
+        if (modelId === "eleven_monolingual_v1") {
+            console.warn("ElevenLabs: usage of deprecated 'eleven_monolingual_v1' detected. Automatically switching to 'eleven_multilingual_v2'.");
+            modelId = "eleven_multilingual_v2";
+        }
+
+        const requestOptions = {
+            model_id: modelId,
+            text: text,
+            voice_settings: {
+                stability: options?.stability ?? 0.5,
+                similarity_boost: options?.similarityBoost ?? 0.75,
+                style: options?.style ?? 0,
+                use_speaker_boost: options?.useSpeakerBoost ?? true,
+            }
+        };
+
+        try {
+            const audioStream = await this.client.textToSpeech.convert(voiceId, requestOptions);
+            const audioBuffer = await this.streamToBuffer(audioStream);
+            return audioBuffer.buffer as ArrayBuffer;
+        } catch (error: any) {
+            console.error("ElevenLabs Speak Error:", error);
+            throw error;
+        }
+    }
+
+    async play(text: string, options?: any, onEnd?: () => void): Promise<void> {
         try {
             if (!text.trim()) {
                 onEnd?.();
                 return;
             }
 
-            // ElevenLabs SDK returns a readable stream or buffer.
-
-            // Default model - changed to v2 for free tier compatibility
-            // We can make this dynamic later if needed
-            let modelId = "eleven_multilingual_v2";
-
-            const makeRequest = async (model: string) => {
-                return await this.client.textToSpeech.convert(this.voiceId, {
-                    model_id: model,
-                    text: text,
-                    voice_settings: {
-                        stability: 0.5,
-                        similarity_boost: 0.75,
-                    }
-                });
+            // Safe defaults if options missing
+            const safeOptions = {
+                voiceId: options?.voiceId || this.voiceId,
+                modelId: options?.modelId || "eleven_multilingual_v2",
+                stability: options?.stability ?? 0.5,
+                similarityBoost: options?.similarityBoost ?? 0.75,
+                style: options?.style ?? 0,
+                useSpeakerBoost: options?.useSpeakerBoost ?? true,
             };
 
-            let audioStream;
+            let audioBuffer: ArrayBuffer | null = null;
+
             try {
-                audioStream = await makeRequest(modelId);
+                audioBuffer = await this.speak(text, safeOptions);
             } catch (error: any) {
-                // Check for deprecated model error and retry
+                // Fallback for deprecated model
                 const isDeprecated =
                     error?.body?.detail?.status === "model_deprecated_free_tier" ||
                     (error?.body?.detail?.message && error.body.detail.message.includes("deprecated"));
 
                 if (isDeprecated) {
                     console.warn("ElevenLabs deprecated model detected. Switching to multilingual_v2.");
-                    toast.error("Selected ElevenLabs model is not available on the free tier. Switching to a supported model.");
-                    modelId = "eleven_multilingual_v2";
-                    audioStream = await makeRequest(modelId);
+                    toast.error("Deprecated model. Switching to v2.");
+                    safeOptions.modelId = "eleven_multilingual_v2";
+                    audioBuffer = await this.speak(text, safeOptions);
                 } else {
                     throw error;
                 }
             }
 
-            // Convert stream/buffer to Blob
-            const audioBuffer = await this.streamToBuffer(audioStream);
-            const blob = new Blob([audioBuffer as any], { type: "audio/mpeg" });
+            if (!audioBuffer) {
+                throw new Error("No audio buffer received");
+            }
+
+            const blob = new Blob([audioBuffer], { type: "audio/mpeg" });
             const url = URL.createObjectURL(blob);
 
             const audio = new Audio(url);
-            // Apply speed - Note: ElevenLabs doesn't have a speed param in generation,
-            // so we rely on HTML5 Audio playbackRate.
             audio.playbackRate = this.rate;
 
             this.currentAudio = audio;
@@ -124,11 +153,13 @@ export class ElevenLabsTTSProvider implements TTSProvider {
             await audio.play();
 
         } catch (error: any) {
+            // Fallback for deprecated model if the first attempt failed and wasn't caught inside
+            // (Though the inner try-catch should handle it, play() issues might occur)
+            // Let's refine the inner try-catch to be sure.
             console.error("ElevenLabs TTS Error:", error);
 
             let msg = "ElevenLabs speech generation failed.";
 
-            // Check for specific API error message first
             if (error?.body?.detail?.message) {
                 msg = error.body.detail.message;
             } else if (error?.body?.detail?.status) {
@@ -137,6 +168,8 @@ export class ElevenLabsTTSProvider implements TTSProvider {
                 msg = "Invalid ElevenLabs API key.";
             } else if (error?.statusCode === 429) {
                 msg = "ElevenLabs quota or rate limit reached.";
+            } else if (error?.body?.detail?.status === "model_deprecated_free_tier" || (error?.message && error.message.includes("deprecated"))) {
+                msg = "Model deprecated. Please reset settings or change model.";
             }
 
             toast.error(msg);

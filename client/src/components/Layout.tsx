@@ -1,8 +1,9 @@
 import { Link, Outlet } from "react-router-dom";
-import { BookOpen, Moon, Sun, HelpCircle } from "lucide-react";
+import { BookOpen, Moon, Sun, HelpCircle, Settings } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Toaster } from "sonner";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 export default function Layout() {
   const [theme, setTheme] = useState<"light" | "dark" | "system">("system");
@@ -39,14 +40,44 @@ export default function Layout() {
             <span className="hidden sm:inline">AI Reader</span>
           </Link>
           <nav className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" asChild>
-              <Link to="/help" aria-label="Help & Setup">
-                <HelpCircle className="h-5 w-5" />
-              </Link>
-            </Button>
-            <Button variant="ghost" size="icon" onClick={toggleTheme}>
-                {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-            </Button>
+            <TooltipProvider>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <Button variant="ghost" size="icon" asChild>
+                          <Link to="/help" aria-label="Help & Setup">
+                            <HelpCircle className="h-5 w-5" />
+                          </Link>
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                        <p>Help & Setup</p>
+                    </TooltipContent>
+                </Tooltip>
+
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <Button variant="ghost" size="icon" asChild>
+                          <Link to="/settings" aria-label="Settings">
+                            <Settings className="h-5 w-5" />
+                          </Link>
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                        <p>Settings</p>
+                    </TooltipContent>
+                </Tooltip>
+
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <Button variant="ghost" size="icon" onClick={toggleTheme}>
+                            {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                        <p>Toggle theme</p>
+                    </TooltipContent>
+                </Tooltip>
+            </TooltipProvider>
           </nav>
         </div>
       </header>

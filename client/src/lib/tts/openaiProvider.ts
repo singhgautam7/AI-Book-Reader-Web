@@ -43,27 +43,52 @@ export class OpenAITTSProvider implements TTSProvider {
         }
     }
 
-    async play(text: string, onEnd?: () => void): Promise<void> {
+    async speak(text: string, options?: any): Promise<ArrayBuffer | null> {
+        if (!text.trim()) return null;
+
+        const voice = options?.voice || "alloy";
+        const speed = options?.speed || this.rate;
+        const model = options?.model || "tts-1";
+
+        try {
+            const response = await this.client.audio.speech.create({
+                model: model,
+                voice: voice,
+                input: text,
+                speed: speed,
+            });
+            return await response.arrayBuffer();
+        } catch (error) {
+            console.error("OpenAI Speak Error:", error);
+            throw error;
+        }
+    }
+
+    async play(text: string, options?: any, onEnd?: () => void): Promise<void> {
         try {
             if (!text.trim()) {
                 onEnd?.();
                 return;
             }
 
-            const response = await this.client.audio.speech.create({
-                model: "tts-1",
-                voice: "alloy",
-                input: text,
-                speed: this.rate,
-            });
+            const safeOptions = {
+                voice: options?.voice || "alloy",
+                speed: options?.speed || this.rate,
+                model: options?.model || "tts-1",
+            };
 
-            // Convert response to blob
-            const blob = await response.blob();
+            const audioBuffer = await this.speak(text, safeOptions);
+
+            if (!audioBuffer) {
+                throw new Error("No audio buffer returned");
+            }
+
+            const blob = new Blob([audioBuffer], { type: "audio/mpeg" });
             const url = URL.createObjectURL(blob);
 
             const audio = new Audio(url);
             this.currentAudio = audio;
-            this.audioPool.push(audio); // Keep track to cleanup if needed
+            this.audioPool.push(audio);
 
             audio.onended = () => {
                 URL.revokeObjectURL(url);
@@ -82,7 +107,7 @@ export class OpenAITTSProvider implements TTSProvider {
                 if (this.currentAudio === audio) {
                     this.currentAudio = null;
                 }
-                onEnd?.(); // Proceed to next chunk even on error to avoid getting stuck
+                onEnd?.();
             };
 
             await audio.play();

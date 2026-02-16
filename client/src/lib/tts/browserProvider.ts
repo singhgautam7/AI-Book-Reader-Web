@@ -4,10 +4,28 @@ export class BrowserTTSProvider implements TTSProvider {
     private utterance: SpeechSynthesisUtterance | null = null;
     private rate: number = 1;
 
-    play(text: string, onEnd?: () => void) {
+    async speak(text: string, options?: any): Promise<ArrayBuffer | null> {
+        // Browser TTS doesn't give us the audio buffer easily
+        return null;
+    }
+
+    async play(text: string, options?: any, onEnd?: () => void): Promise<void> {
         this.stop();
         this.utterance = new SpeechSynthesisUtterance(text);
-        this.utterance.rate = this.rate;
+
+        // Apply options
+        this.utterance.rate = options?.rate || this.rate;
+        if (options?.pitch) {
+            this.utterance.pitch = options.pitch;
+        }
+        if (options?.voiceURI) {
+            const voices = window.speechSynthesis.getVoices();
+            const voice = voices.find(v => v.voiceURI === options.voiceURI);
+            if (voice) {
+                this.utterance.voice = voice;
+            }
+        }
+
         if (onEnd) {
             this.utterance.onend = onEnd;
         }
@@ -28,10 +46,6 @@ export class BrowserTTSProvider implements TTSProvider {
 
     setRate(rate: number) {
         this.rate = rate;
-        if (window.speechSynthesis.speaking && !window.speechSynthesis.paused) {
-            // Note: Changing rate while speaking requires restarting in Web Speech API
-            // For MVP we might just set it for next chunk, or complex restart logic.
-            // We'll keep it simple: set for next utterance.
-        }
+        // Browser TTS rate is dynamic per utterance, usually needs validation
     }
 }
