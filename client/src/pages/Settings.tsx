@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Separator } from "@/components/ui/separator";
 
 import { Textarea } from "../components/ui/textarea";
 import { Slider } from "../components/ui/slider";
@@ -22,11 +22,13 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { cn } from "@/lib/utils";
 
 export default function Settings() {
   const settings = useSettingsStore();
   const [localSettings, setLocalSettings] = useState(settings);
   const [browserVoices, setBrowserVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [activeSection, setActiveSection] = useState("general");
 
   // Sync state on mount and when store changes
   useEffect(() => {
@@ -48,13 +50,44 @@ export default function Settings() {
     };
   }, []);
 
+  // Scroll spy to update active section
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setActiveSection(entry.target.id);
+          }
+        });
+      },
+      { rootMargin: "-20% 0px -60% 0px" } // Adjust trigger zone
+    );
+
+    const sections = ["general", "browser", "gemini", "openai", "elevenlabs", "testing"];
+    sections.forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) observer.observe(el);
+    });
+
+    return () => observer.disconnect();
+  }, []);
+
+  const scrollToSection = (id: string) => {
+    const element = document.getElementById(id);
+    if (element) {
+        // Offset for sticky header (64px) + sticky nav (~60px) + breathing room
+        // But scroll-margin-top is usually handled by CSS 'scroll-mt'
+        element.scrollIntoView({ behavior: "smooth" });
+        setActiveSection(id);
+    }
+  };
+
   const handleSave = () => {
     if (!localSettings.sampleText.trim()) {
         toast.error("Testing mode sample text cannot be empty");
         return;
     }
 
-    // Update store with local state
     settings.setAutoPlay(localSettings.autoPlay);
     settings.setSampleText(localSettings.sampleText);
 
@@ -106,26 +139,47 @@ export default function Settings() {
       }));
   };
 
+  const sections = [
+      { id: "general", label: "General" },
+      { id: "browser", label: "Browser" },
+      { id: "gemini", label: "Gemini" },
+      { id: "openai", label: "OpenAI" },
+      { id: "elevenlabs", label: "ElevenLabs" },
+      { id: "testing", label: "Testing" },
+  ];
 
   return (
-    <div className="container mx-auto py-8 max-w-4xl space-y-8">
-      <div>
+    <div className="container mx-auto max-w-4xl pb-24">
+      {/* Header */}
+      <div className="py-8 space-y-2">
         <h1 className="text-3xl font-bold">Settings</h1>
         <p className="text-muted-foreground">Manage your player preferences and TTS configurations.</p>
       </div>
 
-      <Tabs defaultValue="general" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 lg:grid-cols-6 mb-8">
-          <TabsTrigger value="general">General</TabsTrigger>
-          <TabsTrigger value="browser">Browser</TabsTrigger>
-          <TabsTrigger value="gemini">Gemini</TabsTrigger>
-          <TabsTrigger value="openai">OpenAI</TabsTrigger>
-          <TabsTrigger value="elevenlabs">ElevenLabs</TabsTrigger>
-          <TabsTrigger value="testing">Testing</TabsTrigger>
-        </TabsList>
+      {/* Sticky Mini Navigation */}
+      <div className="sticky top-16 z-30 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 py-2 mb-8 border-b -mx-4 px-4 md:mx-0 md:px-0">
+          <div className="flex items-center space-x-1 overflow-x-auto pb-1 no-scrollbar">
+            {sections.map((section, idx) => (
+                <div key={section.id} className="flex items-center">
+                    <Button
+                        variant={activeSection === section.id ? "secondary" : "ghost"}
+                        size="sm"
+                        onClick={() => scrollToSection(section.id)}
+                        className={cn("whitespace-nowrap transition-all", activeSection === section.id && "font-semibold")}
+                    >
+                        {section.label}
+                    </Button>
+                    {idx < sections.length - 1 && (
+                        <Separator orientation="vertical" className="h-4 mx-2" />
+                    )}
+                </div>
+            ))}
+          </div>
+      </div>
 
+      <div className="space-y-12">
         {/* General */}
-        <TabsContent value="general">
+        <section id="general" className="scroll-mt-36">
             <Card>
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2"><SettingsIcon className="h-5 w-5" /> General Settings</CardTitle>
@@ -147,10 +201,10 @@ export default function Settings() {
                     </div>
                 </CardContent>
             </Card>
-        </TabsContent>
+        </section>
 
         {/* Browser */}
-        <TabsContent value="browser">
+        <section id="browser" className="scroll-mt-36">
             <Card>
                  <CardHeader>
                     <CardTitle className="flex items-center gap-2"><Globe className="h-5 w-5" /> Browser Settings</CardTitle>
@@ -196,10 +250,10 @@ export default function Settings() {
                      </div>
                 </CardContent>
             </Card>
-        </TabsContent>
+        </section>
 
         {/* Gemini */}
-        <TabsContent value="gemini">
+        <section id="gemini" className="scroll-mt-36">
             <Card>
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2"><Cpu className="h-5 w-5" /> Gemini Settings</CardTitle>
@@ -222,10 +276,10 @@ export default function Settings() {
                     </div>
                 </CardContent>
             </Card>
-        </TabsContent>
+        </section>
 
         {/* OpenAI */}
-        <TabsContent value="openai">
+        <section id="openai" className="scroll-mt-36">
             <Card>
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2"><Cloud className="h-5 w-5" /> OpenAI Settings</CardTitle>
@@ -275,10 +329,10 @@ export default function Settings() {
                     </div>
                 </CardContent>
             </Card>
-        </TabsContent>
+        </section>
 
         {/* ElevenLabs */}
-        <TabsContent value="elevenlabs">
+        <section id="elevenlabs" className="scroll-mt-36">
             <Card>
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2"><Podcast className="h-5 w-5" /> ElevenLabs Settings</CardTitle>
@@ -331,10 +385,10 @@ export default function Settings() {
                     </div>
                 </CardContent>
             </Card>
-        </TabsContent>
+        </section>
 
         {/* Testing */}
-        <TabsContent value="testing">
+        <section id="testing" className="scroll-mt-36">
             <Card>
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2"><TestTube className="h-5 w-5" /> Testing Mode Settings</CardTitle>
@@ -353,14 +407,15 @@ export default function Settings() {
                     </div>
                 </CardContent>
             </Card>
-        </TabsContent>
+        </section>
 
-        <div className="flex justify-between items-center mt-8">
+        {/* Actions */}
+        <div className="flex justify-end items-center gap-4 mt-8">
              <AlertDialog>
                 <AlertDialogTrigger asChild>
                     <Button variant="outline" className="text-destructive border-destructive hover:bg-destructive/10">
                         <Trash2 className="w-4 h-4 mr-2" />
-                        Reset to Defaults
+                        Reset Defaults
                     </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
@@ -398,7 +453,7 @@ export default function Settings() {
                 </AlertDialogContent>
             </AlertDialog>
         </div>
-      </Tabs>
+      </div>
     </div>
   );
 }
