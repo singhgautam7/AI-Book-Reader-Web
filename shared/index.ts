@@ -7,6 +7,11 @@ export type Book = {
     totalChunks: number;
     provider?: 'browser' | 'gemini' | 'openai' | 'elevenlabs';
     fileSize?: number;
+    lastPlayedAt?: string;
+    history?: {
+        playedAt: string;
+        provider: string;
+    }[];
 };
 
 export type TextChunk = {

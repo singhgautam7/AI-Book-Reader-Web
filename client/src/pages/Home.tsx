@@ -173,13 +173,19 @@ export default function Home() {
     localStorage.setItem("tts_provider", provider);
 
     // If browser, navigate immediately
+    // If browser, navigate immediately
     if (provider === "browser") {
-        if (testingMode) {
-             addBook({ ...SAMPLE_BOOK, provider: "browser" });
-             navigate(`/reader/${SAMPLE_BOOK.id}`);
-        } else if (uploadedBook) {
-             addBook({ ...uploadedBook, provider: "browser" });
-             navigate(`/reader/${uploadedBook.id}`);
+        const bookToUse = testingMode ? SAMPLE_BOOK : uploadedBook;
+        if (bookToUse) {
+             const books = useBookStore.getState().books;
+             const recordPlayback = useBookStore.getState().recordPlayback;
+
+             const existingBook = books.find(b => b.title === bookToUse.title && b.fileSize === bookToUse.fileSize);
+             const activeBookId = existingBook ? existingBook.id : bookToUse.id;
+
+             addBook({ ...bookToUse, id: activeBookId, provider: "browser" });
+             recordPlayback(activeBookId, "browser");
+             navigate(`/reader/${activeBookId}`);
         }
         return;
     }
@@ -262,8 +268,21 @@ export default function Home() {
         // Navigate
         const bookToUse = testingMode ? SAMPLE_BOOK : uploadedBook;
         if (bookToUse) {
-             addBook({ ...bookToUse, provider });
-             navigate(`/reader/${bookToUse.id}`);
+             const books = useBookStore.getState().books;
+             const recordPlayback = useBookStore.getState().recordPlayback;
+
+             // Check for existing book (by title + size) to prevent duplicates
+             const existingBook = books.find(b => b.title === bookToUse.title && b.fileSize === bookToUse.fileSize);
+             const activeBookId = existingBook ? existingBook.id : bookToUse.id;
+
+             // Add or Update (moves to top)
+             // We use activeBookId so if it exists, it updates that ID.
+             addBook({ ...bookToUse, id: activeBookId, provider });
+
+             // Record Playback History
+             recordPlayback(activeBookId, provider);
+
+             navigate(`/reader/${activeBookId}`);
         }
 
     } catch (err) {
