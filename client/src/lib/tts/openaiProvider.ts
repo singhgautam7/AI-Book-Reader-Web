@@ -1,6 +1,7 @@
 import OpenAI from "openai";
 import type { TTSProvider } from "./types";
 import { toast } from "sonner";
+import { generateCacheKey, getCachedAudio, setCachedAudio } from "../audioCache";
 
 export class OpenAITTSProvider implements TTSProvider {
     private client: OpenAI;
@@ -50,6 +51,15 @@ export class OpenAITTSProvider implements TTSProvider {
         const speed = options?.speed || this.rate;
         const model = options?.model || "tts-1";
 
+        // --- Caching Logic ---
+        const cacheKey = await generateCacheKey('openai', text, { voice, speed, model });
+        const cachedAudio = await getCachedAudio(cacheKey);
+        if (cachedAudio) {
+            console.log('OpenAI: Using cached audio');
+            return cachedAudio;
+        }
+        // ---------------------
+
         try {
             const response = await this.client.audio.speech.create({
                 model: model,
@@ -57,7 +67,13 @@ export class OpenAITTSProvider implements TTSProvider {
                 input: text,
                 speed: speed,
             });
-            return await response.arrayBuffer();
+            const buffer = await response.arrayBuffer();
+
+            // --- Cache the result ---
+            await setCachedAudio(cacheKey, buffer, 'openai');
+            // ------------------------
+
+            return buffer;
         } catch (error) {
             console.error("OpenAI Speak Error:", error);
             throw error;

@@ -60,7 +60,7 @@ export function BookHistoryTable({ books }: BookHistoryTableProps) {
   const [bookToDelete, setBookToDelete] = useState<Book | null>(null);
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(5);
+  const [pageSize, setPageSize] = useState(10);
 
   const totalPages = Math.ceil(books.length / pageSize);
   const startIndex = (currentPage - 1) * pageSize;
@@ -320,7 +320,7 @@ export function BookHistoryTable({ books }: BookHistoryTableProps) {
               <SelectValue placeholder={pageSize} />
             </SelectTrigger>
             <SelectContent side="top">
-              {[5, 10, 20, 50].map((size) => (
+              {[10, 25, 50].map((size) => (
                 <SelectItem key={size} value={`${size}`}>
                   {size}
                 </SelectItem>

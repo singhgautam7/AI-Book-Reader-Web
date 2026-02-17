@@ -1,6 +1,7 @@
 import { ElevenLabsClient } from "elevenlabs";
 import type { TTSProvider } from "./types";
 import { toast } from "sonner";
+import { generateCacheKey, getCachedAudio, setCachedAudio } from "../audioCache";
 
 export class ElevenLabsTTSProvider implements TTSProvider {
     private client: ElevenLabsClient;
@@ -52,27 +53,41 @@ export class ElevenLabsTTSProvider implements TTSProvider {
         let modelId = options?.modelId || "eleven_multilingual_v2";
 
         // Preemptive fix for deprecated free tier models
-        // The eleven_monolingual_v1 model is deprecated for free users.
-        // We force upgrade to v2 to avoid "subscription_required" errors.
         if (modelId === "eleven_monolingual_v1") {
             console.warn("ElevenLabs: usage of deprecated 'eleven_monolingual_v1' detected. Automatically switching to 'eleven_multilingual_v2'.");
             modelId = "eleven_multilingual_v2";
         }
 
+        const voiceSettings = {
+            stability: options?.stability ?? 0.5,
+            similarity_boost: options?.similarityBoost ?? 0.75,
+            style: options?.style ?? 0,
+            use_speaker_boost: options?.useSpeakerBoost ?? true,
+        };
+
+        // --- Caching Logic ---
+        const cacheKey = await generateCacheKey('elevenlabs', text, { voiceId, modelId, ...voiceSettings });
+        const cachedAudio = await getCachedAudio(cacheKey);
+        if (cachedAudio) {
+            console.log('ElevenLabs: Using cached audio');
+            return cachedAudio;
+        }
+        // ---------------------
+
         const requestOptions = {
             model_id: modelId,
             text: text,
-            voice_settings: {
-                stability: options?.stability ?? 0.5,
-                similarity_boost: options?.similarityBoost ?? 0.75,
-                style: options?.style ?? 0,
-                use_speaker_boost: options?.useSpeakerBoost ?? true,
-            }
+            voice_settings: voiceSettings
         };
 
         try {
             const audioStream = await this.client.textToSpeech.convert(voiceId, requestOptions);
             const audioBuffer = await this.streamToBuffer(audioStream);
+
+            // --- Cache the result ---
+            await setCachedAudio(cacheKey, audioBuffer.buffer as ArrayBuffer, 'elevenlabs');
+            // ------------------------
+
             return audioBuffer.buffer as ArrayBuffer;
         } catch (error: any) {
             console.error("ElevenLabs Speak Error:", error);

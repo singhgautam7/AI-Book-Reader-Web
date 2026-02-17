@@ -1,6 +1,7 @@
 import type { TTSProvider } from "./types";
 import { toast } from "sonner";
 import { GoogleGenAI } from "@google/genai";
+import { generateCacheKey, getCachedAudio, setCachedAudio } from "../audioCache";
 
 export class GeminiTTSProvider implements TTSProvider {
     private client: GoogleGenAI;
@@ -45,6 +46,15 @@ export class GeminiTTSProvider implements TTSProvider {
 
         const voiceName = options?.voiceName || "Puck";
 
+        // --- Caching Logic ---
+        const cacheKey = await generateCacheKey('gemini', text, { voiceName });
+        const cachedAudio = await getCachedAudio(cacheKey);
+        if (cachedAudio) {
+            console.log('Gemini: Using cached audio');
+            return cachedAudio;
+        }
+        // ---------------------
+
         try {
             const response = await this.client.models.generateContent({
                 model: 'gemini-2.0-flash',
@@ -69,6 +79,11 @@ export class GeminiTTSProvider implements TTSProvider {
             for (let i = 0; i < binaryString.length; i++) {
                 bytes[i] = binaryString.charCodeAt(i);
             }
+
+            // --- Cache the result ---
+            await setCachedAudio(cacheKey, bytes.buffer, 'gemini');
+            // ------------------------
+
             return bytes.buffer;
 
         } catch (error) {
