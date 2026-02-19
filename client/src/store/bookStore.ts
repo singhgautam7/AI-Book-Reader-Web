@@ -1,12 +1,15 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Book } from '@ai-book-reader/shared';
+import type { Book, TextChunk } from '@ai-book-reader/shared';
 
 interface BookState {
     books: Book[];
+    bookChunks: Record<string, TextChunk[]>;
     currentBookId: string | null;
     playbackProgress: Record<string, number>; // chunk index per book
     addBook: (book: Book) => void;
+    setChunks: (bookId: string, chunks: TextChunk[]) => void;
+    getChunks: (bookId: string) => TextChunk[] | undefined;
     removeBook: (bookId: string) => void;
     updateProgress: (bookId: string, chunkIndex: number) => void;
     setCurrentBook: (bookId: string) => void;
@@ -15,16 +18,22 @@ interface BookState {
 
 export const useBookStore = create<BookState>()(
     persist(
-        (set) => ({
+        (set, get) => ({
             books: [],
+            bookChunks: {},
             currentBookId: null,
             playbackProgress: {},
 
             addBook: (book) =>
                 set((state) => {
-                    // Check for existing book by title + size
+                    // Check for existing book by title + size OR url
                     const existingBook = state.books.find(
-                        (b) => b.title === book.title && b.fileSize === book.fileSize
+                        (b) => {
+                            if (book.fileType === 'link' && book.url && b.url) {
+                                return b.url === book.url;
+                            }
+                            return b.title === book.title && b.fileSize === book.fileSize;
+                        }
                     );
 
                     if (existingBook) {
@@ -40,7 +49,10 @@ export const useBookStore = create<BookState>()(
                                     ...b,
                                     // Preserve existing history/stats
                                     // Update lastPlayedAt if the new book object has it (e.g. from handleProceed)
-                                    lastPlayedAt: book.lastPlayedAt || b.lastPlayedAt
+                                    // Update lastPlayedAt if the new book object has it
+                                    lastPlayedAt: book.lastPlayedAt || b.lastPlayedAt,
+                                    url: book.url || b.url, // Ensure URL is preserved/updated
+                                    sourceDomain: book.sourceDomain || b.sourceDomain
                                 };
                             }
                             return b;
@@ -84,14 +96,26 @@ export const useBookStore = create<BookState>()(
                     };
                 }),
 
-            removeBook: (bookId) =>
+            setChunks: (bookId, chunks) =>
                 set((state) => ({
-                    books: state.books.filter((b) => b.id !== bookId),
-                    playbackProgress: (() => {
-                        const { [bookId]: _, ...rest } = state.playbackProgress;
-                        return rest;
-                    })(),
+                    bookChunks: {
+                        ...state.bookChunks,
+                        [bookId]: chunks,
+                    },
                 })),
+
+            getChunks: (bookId) => get().bookChunks[bookId],
+
+            removeBook: (bookId) =>
+                set((state) => {
+                    const { [bookId]: _p, ...restProgress } = state.playbackProgress;
+                    const { [bookId]: _c, ...restChunks } = state.bookChunks;
+                    return {
+                        books: state.books.filter((b) => b.id !== bookId),
+                        playbackProgress: restProgress,
+                        bookChunks: restChunks,
+                    };
+                }),
 
             updateProgress: (bookId, chunkIndex) =>
                 set((state) => ({

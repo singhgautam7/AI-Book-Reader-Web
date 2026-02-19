@@ -1,5 +1,5 @@
 export const STRINGS = {
-    APP_TITLE: "AI Book Reader",
+    APP_TITLE: "AI Reader",
     APP_SUBTITLE: "Transform your local PDF & EPUB files into immersive audiobooks.",
 
     // Providers

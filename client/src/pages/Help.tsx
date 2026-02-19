@@ -15,12 +15,12 @@ export default function Help() {
       {/* What this app does */}
       <section className="space-y-4">
         <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-          <BookOpenIcon className="h-6 w-6" /> What is AI Book Reader?
+          <BookOpenIcon className="h-6 w-6" /> What is AI Reader?
         </h2>
         <Card>
           <CardContent className="pt-6">
             <p className="leading-7">
-              This application allows you to upload standard e-books (PDF and EPUB) and have them narrated to you using state-of-the-art AI voices.
+              This application allows you to upload standard e-books (PDF and EPUB) or past a link and have them narrated to you using state-of-the-art AI voices.
               The text extraction happens entirely within your browser, ensuring your files remain private. You can choose between free offline voices
               or high-quality cloud-based AI voices from providers like Google, OpenAI, and ElevenLabs.
             </p>

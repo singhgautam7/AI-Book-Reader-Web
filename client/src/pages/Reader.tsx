@@ -111,8 +111,8 @@ export default function Reader() {
     }
   }, [bookId, playbackProgress]);
 
-  // Fetch chunks (with Testing Mode support)
-  const { data: chunks, isLoading } = useQuery<TextChunk[]>({
+  // Fetch chunks: local store first, then server fallback
+  const { data: chunks, isLoading, isError } = useQuery<TextChunk[]>({
     queryKey: ["chunks", bookId, settings.sampleText], // Add sampleText dependency
     queryFn: async () => {
       if (!bookId) return [];
@@ -127,11 +127,28 @@ export default function Reader() {
           }];
       }
 
+      // 1. Try local store first (persisted via Zustand)
+      const localChunks = useBookStore.getState().getChunks(bookId);
+      console.log('[READER] Looking for chunks. bookId:', bookId, 'localChunks:', localChunks?.length || 0);
+      if (localChunks && localChunks.length > 0) {
+          return localChunks;
+      }
+
+      // 2. Fallback: try server API
       const res = await fetch(`http://localhost:3000/api/books/${bookId}/chunks`);
       if (!res.ok) throw new Error("Failed to fetch chunks");
-      return res.json();
+      const serverChunks = await res.json();
+
+      // Cache locally for future use
+      if (serverChunks && serverChunks.length > 0) {
+          useBookStore.getState().setChunks(bookId, serverChunks);
+      }
+
+      return serverChunks;
     },
     enabled: !!bookId,
+    retry: 1, // Only retry once instead of default 3
+    retryDelay: 500,
   });
 
   // Watch for chunks to trigger auto-start if not ready during initial mount
@@ -263,20 +280,57 @@ export default function Reader() {
                         <Loader2 className="h-8 w-8 animate-spin" />
                         <p>Loading book content...</p>
                     </div>
+                ) : isError || !chunks || chunks.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-full gap-4 text-muted-foreground">
+                        <p className="text-lg font-medium">Unable to load content</p>
+                        <p className="text-sm">The content for this book could not be found. Please re-upload the file or re-extract the link.</p>
+                        <Link to="/">
+                            <Button variant="outline" className="gap-2">
+                                <ArrowLeft className="h-4 w-4" /> Back to Home
+                            </Button>
+                        </Link>
+                    </div>
                 ) : (
-                    <div className="text-lg leading-relaxed">
-                        {chunks?.map((chunk, idx) => (
-                            <span
-                                key={chunk.id}
-                                className={`transition-colors duration-200 rounded-sm p-1 ${idx === currentChunkIndex ? "bg-yellow-300/50 dark:bg-yellow-300/30 text-foreground shadow-sm" : "text-muted-foreground"}`}
-                                onClick={() => {
-                                    setCurrentChunkIndex(idx);
-                                    setIsPlaying(true);
-                                }}
-                            >
-                                {chunk.content}{" "}
-                            </span>
-                        ))}
+                    <div className="text-lg leading-relaxed space-y-6 max-w-3xl mx-auto">
+                        <div className="border-b pb-4 mb-6">
+                            <h1 className="text-3xl font-bold tracking-tight mb-2">{book?.title}</h1>
+                            {book?.sourceDomain && (
+                                <p className="text-sm text-muted-foreground flex items-center gap-2">
+                                    <Globe className="w-3 h-3" /> {book.sourceDomain}
+                                </p>
+                            )}
+                        </div>
+
+                        {chunks?.map((chunk, idx) => {
+                            // Split chunk into paragraphs based on double newlines
+                            const paragraphs = chunk.content.split(/\n\n+/);
+
+                            return (
+                                <div
+                                    key={chunk.id}
+                                    className={`relative transition-all duration-300 rounded-md p-2 -mx-2 group ${
+                                        idx === currentChunkIndex
+                                            ? "bg-yellow-100/50 dark:bg-yellow-900/20 ring-1 ring-yellow-200 dark:ring-yellow-800"
+                                            : "hover:bg-muted/30"
+                                    }`}
+                                    onClick={() => {
+                                        setCurrentChunkIndex(idx);
+                                        setIsPlaying(true);
+                                    }}
+                                >
+                                     {/* Active Indicator */}
+                                     {idx === currentChunkIndex && (
+                                        <div className="absolute left-[-16px] top-3 w-1 h-6 bg-yellow-400 rounded-full" />
+                                    )}
+
+                                    {paragraphs.map((para, pIdx) => (
+                                        <p key={pIdx} className="mb-4 last:mb-0">
+                                            {para}
+                                        </p>
+                                    ))}
+                                </div>
+                            );
+                        })}
                     </div>
                 )}
             </div>

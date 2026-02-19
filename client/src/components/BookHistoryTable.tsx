@@ -10,7 +10,7 @@ import {
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Play, Trash2, Globe, Cpu, Cloud, Podcast, FileText, Calendar, HardDrive, Layers, Info, BookOpen, Search, Filter, X, Clock, History, ChevronLeft, ChevronRight } from "lucide-react";
+import { Play, Trash2, Globe, Cpu, Cloud, Podcast, Calendar, Layers, Info, BookOpen, Search, Filter, X, Clock, History, ChevronLeft, ChevronRight, Copy, Link2 } from "lucide-react";
 import type { Book } from "@ai-book-reader/shared";
 import { useNavigate } from "react-router-dom";
 import { useBookStore } from "@/store/bookStore";
@@ -48,6 +48,7 @@ import {
 } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 
 interface BookHistoryTableProps {
@@ -168,6 +169,24 @@ export function BookHistoryTable({ books }: BookHistoryTableProps) {
       }
   };
 
+  /* -------------------------------------------------------------------------- */
+  /*                                HELPER METHODS                              */
+  /* -------------------------------------------------------------------------- */
+
+  const getFormatBadge = (fileType: string) => {
+    switch (fileType) {
+      case "pdf":
+        return <Badge variant="secondary" className="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 hover:bg-red-100/80">PDF</Badge>;
+      case "epub":
+        return <Badge variant="secondary" className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 hover:bg-blue-100/80">EPUB</Badge>;
+      case "link":
+        return <Badge variant="secondary" className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 hover:bg-green-100/80">LINK</Badge>;
+      default:
+        return <Badge variant="outline">{fileType}</Badge>;
+    }
+  };
+
+  // ... (keeping other helpers same)
   const getProviderName = (provider?: string) => {
     if (!provider) return "";
     switch (provider) {
@@ -200,18 +219,27 @@ export function BookHistoryTable({ books }: BookHistoryTableProps) {
       });
   };
 
+  /* -------------------------------------------------------------------------- */
+  /*                                   RENDER                                   */
+  /* -------------------------------------------------------------------------- */
+
   if (books.length === 0) {
     return (
       <div className="text-center p-8 text-muted-foreground border rounded-lg bg-muted/10 border-dashed">
         <p>No books in your library yet.</p>
-        <p className="text-sm">Upload a PDF or EPUB to get started.</p>
+        <p className="text-sm">Upload a PDF or EPUB, or paste a LINK to get started.</p>
       </div>
     );
   }
 
+  const isLink = selectedBook?.fileType === 'link';
+
   return (
     <>
     <div className="space-y-4">
+    {/* ... (Search Bar - Unexpectedly complex to replace just parts, so I'll keeping the search bar code by context if possible, but safer to replace block for Modal) */}
+    {/* Actually I will replace the WHOLE return block to be safe and ensure structure */}
+
     <div className="flex flex-col md:flex-row gap-4 justify-between items-center">
         <div className="relative w-full md:w-72">
             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -249,6 +277,7 @@ export function BookHistoryTable({ books }: BookHistoryTableProps) {
                     <SelectItem value="all">All Formats</SelectItem>
                     <SelectItem value="pdf">PDF</SelectItem>
                     <SelectItem value="epub">EPUB</SelectItem>
+                    <SelectItem value="link">LINK</SelectItem>
                 </SelectContent>
             </Select>
 
@@ -320,7 +349,7 @@ export function BookHistoryTable({ books }: BookHistoryTableProps) {
                   </div>
               </TableCell>
               <TableCell className="uppercase text-xs text-muted-foreground">
-                <Badge variant="secondary">{book.fileType}</Badge>
+                {getFormatBadge(book.fileType)}
               </TableCell>
               <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
                 {formatDateTime(book.lastPlayedAt || book.uploadDate)}
@@ -375,6 +404,7 @@ export function BookHistoryTable({ books }: BookHistoryTableProps) {
       </Table>
     </div>
 
+    {/* Pagination... (keeping same) */}
     <div className="grid grid-cols-3 items-center py-4">
       <div className="text-sm text-muted-foreground justify-self-start">
         Showing {startIndex + 1} to {Math.min(endIndex, books.length)} of {books.length} entries
@@ -457,113 +487,149 @@ export function BookHistoryTable({ books }: BookHistoryTableProps) {
     </div>
     </div>
 
+    {/* DETAILS MODAL REFACTOR */}
     <Dialog open={!!selectedBook} onOpenChange={(open) => !open && setSelectedBook(null)}>
-        <DialogContent className="max-w-2xl">
-            <DialogHeader>
-                <DialogTitle className="flex items-center gap-2">
-                    <Info className="w-5 h-5 text-primary" /> Book Details
+        <DialogContent className="max-w-3xl">
+            <DialogHeader className="pb-2 border-b mb-4">
+                <DialogTitle className="flex items-center gap-3 text-xl">
+                    {isLink ? <Globe className="w-6 h-6 text-green-600" /> : <BookOpen className="w-6 h-6 text-primary" />}
+                    {isLink ? "Link Details" : "Book Details"}
                 </DialogTitle>
-                <DialogDescription>
+                <DialogDescription className="text-base font-medium text-foreground">
                     {selectedBook?.title}
                 </DialogDescription>
             </DialogHeader>
 
             {selectedBook && (
                 <Tabs defaultValue="details" className="w-full">
-                    <TabsList className="grid w-full grid-cols-2">
+                    <TabsList className="grid w-full grid-cols-2 mb-4">
                         <TabsTrigger value="details">Details</TabsTrigger>
                         <TabsTrigger value="history">Playback History</TabsTrigger>
                     </TabsList>
 
-                    <TabsContent value="details" className="mt-4">
-                        <div className="grid gap-4 py-4">
-                            <div className="grid grid-cols-4 items-center gap-4">
-                                <span className="text-right font-medium text-muted-foreground flex items-center justify-end gap-2">
-                                     <BookOpen className="w-4 h-4" /> Title:
-                                </span>
-                                <span className="col-span-3 font-semibold break-words">{selectedBook.title}</span>
-                            </div>
-                            <div className="grid grid-cols-4 items-center gap-4">
-                                <span className="text-right font-medium text-muted-foreground flex items-center justify-end gap-2">
-                                    <FileText className="w-4 h-4" /> Format:
-                                </span>
-                                <span className="col-span-3 capitalize">{selectedBook.fileType}</span>
-                            </div>
-                            <div className="grid grid-cols-4 items-center gap-4">
-                                <span className="text-right font-medium text-muted-foreground flex items-center justify-end gap-2">
-                                     <HardDrive className="w-4 h-4" /> Size:
-                                </span>
-                                <span className="col-span-3">{formatFileSize(selectedBook.fileSize)}</span>
-                            </div>
-                            <div className="grid grid-cols-4 items-center gap-4">
-                                <span className="text-right font-medium text-muted-foreground flex items-center justify-end gap-2">
-                                     <Layers className="w-4 h-4" /> Chunks:
-                                </span>
-                                <span className="col-span-3">{selectedBook.totalChunks} segments</span>
-                            </div>
-                             <div className="grid grid-cols-4 items-center gap-4">
-                                <span className="text-right font-medium text-muted-foreground flex items-center justify-end gap-2">
-                                     <Calendar className="w-4 h-4" /> Added:
-                                </span>
-                                <span className="col-span-3">{formatDateTime(selectedBook.uploadDate)}</span>
-                            </div>
-                            <div className="grid grid-cols-4 items-center gap-4">
-                                <span className="text-right font-medium text-muted-foreground flex items-center justify-end gap-2">
-                                     <Clock className="w-4 h-4" /> Last Played:
-                                </span>
-                                <span className="col-span-3">
-                                    {selectedBook.lastPlayedAt ? formatDateTime(selectedBook.lastPlayedAt) : "Never played"}
-                                </span>
+                    <TabsContent value="details" className="space-y-4">
+                        {/* Metadata Grid */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-1">
+                            {/* LEFT COLUMN */}
+                            <div className="space-y-6">
+                                <div>
+                                    <Label className="text-xs text-muted-foreground uppercase tracking-wider">Format</Label>
+                                    <div className="mt-1.5">{getFormatBadge(selectedBook.fileType)}</div>
+                                </div>
+
+                                {/* Link: Source | Book: Size */}
+                                {isLink ? (
+                                    <div>
+                                        <Label className="text-xs text-muted-foreground uppercase tracking-wider">URL</Label>
+                                        <div className="flex items-center gap-2 mt-1.5">
+                                            <Link2 className="w-4 h-4 text-muted-foreground shrink-0" />
+                                            <span className="font-medium text-sm truncate flex-1 min-w-0" title={selectedBook.url || ''}>
+                                                {selectedBook.url || 'Unknown URL'}
+                                            </span>
+                                            <button
+                                                onClick={() => {
+                                                    if (selectedBook.url) {
+                                                        navigator.clipboard.writeText(selectedBook.url);
+                                                    }
+                                                }}
+                                                className="p-1 rounded hover:bg-muted transition-colors shrink-0 group relative"
+                                                title="Copy URL"
+                                            >
+                                                <Copy className="w-3.5 h-3.5 text-muted-foreground group-hover:text-foreground" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div>
+                                        <Label className="text-xs text-muted-foreground uppercase tracking-wider">File Size</Label>
+                                        <div className="flex items-center gap-2 mt-1.5 font-medium">
+                                            <Layers className="w-4 h-4 text-muted-foreground" />
+                                            {formatFileSize(selectedBook.fileSize || 0)}
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div>
+                                    <Label className="text-xs text-muted-foreground uppercase tracking-wider">Content</Label>
+                                    <div className="flex items-center gap-2 mt-1.5 font-medium">
+                                        <Layers className="w-4 h-4 text-muted-foreground" />
+                                        {selectedBook.totalChunks} Chunks / Segments
+                                    </div>
+                                </div>
                             </div>
 
-                            {selectedBook.provider && (
-                                 <div className="grid grid-cols-4 items-center gap-4">
-                                    <span className="text-right font-medium text-muted-foreground flex items-center justify-end gap-2">
-                                        <Podcast className="w-4 h-4" /> Reader:
-                                    </span>
-                                    <span className="col-span-3 flex items-center gap-2">
-                                        {getProviderIcon(selectedBook.provider)}
-                                        {getProviderName(selectedBook.provider)}
-                                    </span>
+                            {/* RIGHT COLUMN */}
+                            <div className="space-y-6">
+                                <div>
+                                    <Label className="text-xs text-muted-foreground uppercase tracking-wider">Date Added</Label>
+                                    <div className="flex items-center gap-2 mt-1.5 font-medium">
+                                        <Calendar className="w-4 h-4 text-muted-foreground" />
+                                        {formatDateTime(selectedBook.uploadDate)}
+                                    </div>
                                 </div>
-                            )}
+
+                                <div>
+                                    <Label className="text-xs text-muted-foreground uppercase tracking-wider">Last Played</Label>
+                                    <div className="flex items-center gap-2 mt-1.5 font-medium">
+                                        <Clock className="w-4 h-4 text-muted-foreground" />
+                                        {selectedBook.lastPlayedAt ? formatDateTime(selectedBook.lastPlayedAt) : "Never played"}
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <Label className="text-xs text-muted-foreground uppercase tracking-wider">Last Used Reader</Label>
+                                    <div className="flex items-center gap-2 mt-1.5">
+                                        {selectedBook.provider ? (
+                                            <>
+                                                {getProviderIcon(selectedBook.provider)}
+                                                <span className="font-medium">{getProviderName(selectedBook.provider)}</span>
+                                            </>
+                                        ) : (
+                                            <span className="text-muted-foreground italic">None</span>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </TabsContent>
 
-                    <TabsContent value="history" className="mt-4">
-                        <div className="rounded-md border p-4 h-[300px] overflow-y-auto no-scrollbar">
-                            {!selectedBook.history || selectedBook.history.length === 0 ? (
-                                <div className="flex flex-col items-center justify-center h-full text-muted-foreground space-y-2">
-                                    <History className="w-8 h-8 opacity-20" />
-                                    <p>No playback history yet.</p>
-                                </div>
-                            ) : (
-                                <div className="space-y-4">
-                                    {selectedBook.history.map((record, i) => (
-                                        <div key={i} className="flex items-center justify-between border-b last:border-0 pb-3 last:pb-0">
-                                            <div className="flex items-center gap-3">
-                                                <div className="bg-muted p-2 rounded-full">
-                                                    {getProviderIcon(record.provider)}
-                                                </div>
-                                                <div className="flex flex-col">
-                                                    <span className="font-semibold text-sm">{formatDateTime(record.playedAt)}</span>
-                                                    <span className="text-xs text-muted-foreground capitalize">{getProviderName(record.provider)} Reader</span>
+                    <TabsContent value="history" className="mt-0">
+                        <div className="rounded-md border p-0 h-[300px] overflow-hidden flex flex-col">
+                           {/* ScrollArea is better but standard div with overflow auto works too as requested */}
+                            <div className="overflow-y-auto p-4 space-y-4 flex-1">
+                                {!selectedBook.history || selectedBook.history.length === 0 ? (
+                                    <div className="flex flex-col items-center justify-center h-full text-muted-foreground space-y-2 opacity-60">
+                                        <History className="w-10 h-10" />
+                                        <p>No playback history recorded.</p>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-1">
+                                        {selectedBook.history.map((record, i) => (
+                                            <div key={i} className="flex items-centerjustify-between p-3 hover:bg-muted/50 rounded-lg transition-colors border border-transparent hover:border-border">
+                                                <div className="flex items-center gap-4">
+                                                    <div className="bg-muted p-2.5 rounded-full">
+                                                        {getProviderIcon(record.provider)}
+                                                    </div>
+                                                    <div className="flex flex-col">
+                                                        <span className="font-medium text-sm">{formatDateTime(record.playedAt)}</span>
+                                                        <span className="text-xs text-muted-foreground capitalize">{getProviderName(record.provider)} Reader</span>
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </TabsContent>
                 </Tabs>
             )}
-            <DialogFooter>
+            <DialogFooter className="mt-4 pt-4 border-t">
                 <DialogClose asChild>
                     <Button variant="outline">Close</Button>
                 </DialogClose>
-                <Button onClick={(e) => selectedBook && handlePlay(e, selectedBook)}>
-                    <Play className="mr-2 h-4 w-4" /> Proceed to Reader
+                <Button onClick={(e) => selectedBook && handlePlay(e, selectedBook)} className="gap-2">
+                    <Play className="h-4 w-4" /> Open In Reader
                 </Button>
             </DialogFooter>
         </DialogContent>

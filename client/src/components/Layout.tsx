@@ -85,7 +85,7 @@ export default function Layout() {
         <Outlet />
       </main>
       <footer className="border-t py-6 text-center text-sm text-muted-foreground">
-        <p>AI Book Reader - Personal Use Only</p>
+        <p>AI Reader - Personal Use Only</p>
       </footer>
       <Toaster position="top-right" duration={5000} richColors closeButton />
     </div>
