@@ -4,6 +4,7 @@ import Home from "@/pages/Home";
 import Reader from "@/pages/Reader";
 import Help from "@/pages/Help";
 import Settings from "@/pages/Settings";
+import NotFound from "@/pages/NotFound";
 import Layout from "@/components/Layout";
 
 const queryClient = new QueryClient();
@@ -18,6 +19,7 @@ function App() {
             <Route path="reader/:bookId" element={<Reader />} />
             <Route path="settings" element={<Settings />} />
             <Route path="help" element={<Help />} />
+            <Route path="*" element={<NotFound />} />
           </Route>
         </Routes>
       </BrowserRouter>
