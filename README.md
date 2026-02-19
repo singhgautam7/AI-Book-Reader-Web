@@ -21,6 +21,30 @@ A modern web application for converting books (PDF/EPUB) and web articles into i
     <td><img src="assets/screenshots/web/08_reader.png" width="400" /></td>
     <td><img src="assets/screenshots/web/11_dark_mode.png" width="400" /></td>
   </tr>
+  <tr>
+    <td align="center"><b>Your Library</b></td>
+    <td align="center"><b>Book Details</b></td>
+  </tr>
+  <tr>
+    <td><img src="assets/screenshots/web/03_library.png" width="400" /></td>
+    <td><img src="assets/screenshots/web/04_book_details.png" width="400" /></td>
+  </tr>
+  <tr>
+    <td align="center"><b>Playback History</b></td>
+    <td align="center"><b>ElevenLabs TTS Config</b></td>
+  </tr>
+  <tr>
+    <td><img src="assets/screenshots/web/05_playback_history.png" width="400" /></td>
+    <td><img src="assets/screenshots/web/06_tts_elevenlabs.png" width="400" /></td>
+  </tr>
+  <tr>
+    <td align="center"><b>Settings</b></td>
+    <td align="center"><b>Help & Setup Guide</b></td>
+  </tr>
+  <tr>
+    <td><img src="assets/screenshots/web/09_settings.png" width="400" /></td>
+    <td><img src="assets/screenshots/web/10_help.png" width="400" /></td>
+  </tr>
 </table>
 
 <details>
