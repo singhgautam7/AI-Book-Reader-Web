@@ -2,6 +2,42 @@
 
 A modern web application for converting books (PDF/EPUB) and web articles into immersive audiobooks using AI Text-to-Speech. Built with **Bun**, **React**, and **TypeScript** as a full-stack monorepo.
 
+## 📸 Screenshots
+
+<table>
+  <tr>
+    <td align="center"><b>Home — Upload a Book</b></td>
+    <td align="center"><b>Paste a Link (Extracted)</b></td>
+  </tr>
+  <tr>
+    <td><img src="assets/screenshots/web/02_home_upload.png" width="400" /></td>
+    <td><img src="assets/screenshots/web/07_paste_link.png" width="400" /></td>
+  </tr>
+  <tr>
+    <td align="center"><b>Reader — Article with TTS</b></td>
+    <td align="center"><b>Dark Mode</b></td>
+  </tr>
+  <tr>
+    <td><img src="assets/screenshots/web/08_reader.png" width="400" /></td>
+    <td><img src="assets/screenshots/web/11_dark_mode.png" width="400" /></td>
+  </tr>
+</table>
+
+<details>
+<summary>🖼️ View more screenshots</summary>
+<br>
+
+| Screen | Preview |
+|---|---|
+| Library | <img src="assets/screenshots/web/03_library.png" width="500" /> |
+| Book Details | <img src="assets/screenshots/web/04_book_details.png" width="500" /> |
+| Playback History | <img src="assets/screenshots/web/05_playback_history.png" width="500" /> |
+| ElevenLabs TTS Config | <img src="assets/screenshots/web/06_tts_elevenlabs.png" width="500" /> |
+| Settings | <img src="assets/screenshots/web/09_settings.png" width="500" /> |
+| Help & Setup Guide | <img src="assets/screenshots/web/10_help.png" width="500" /> |
+
+</details>
+
 ## ✨ Features
 
 ### 📚 Book Upload & Reading
