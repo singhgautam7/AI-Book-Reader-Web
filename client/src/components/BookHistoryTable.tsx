@@ -10,7 +10,7 @@ import {
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Play, Trash2, Globe, Cpu, Cloud, Podcast, Calendar, Layers, Info, BookOpen, Search, Filter, X, Clock, History, ChevronLeft, ChevronRight, Copy, Link2 } from "lucide-react";
+import { Play, Trash2, Globe, Cpu, Cloud, Podcast, Calendar, Layers, BookOpen, Search, Filter, X, Clock, History, ChevronLeft, ChevronRight, Copy, Link2 } from "lucide-react";
 import type { Book } from "@ai-book-reader/shared";
 import { useNavigate } from "react-router-dom";
 import { useBookStore } from "@/store/bookStore";
