@@ -1,6 +1,6 @@
 # AI Reader
 
-[![Live Demo](https://img.shields.io/badge/Live_Demo-Play_Now-success?style=for-the-badge&logo=vercel)](https://singhgautam7.github.io/AI-Book-Reader-Web/)
+[![Live Demo](https://img.shields.io/badge/Live_Demo-Open_Now-success?style=for-the-badge&logo=googlechrome)](https://singhgautam7.github.io/AI-Book-Reader-Web/)
 
 A modern web application for converting books (PDF/EPUB) and web articles into immersive audiobooks using AI Text-to-Speech. Built with **Bun**, **React**, and **TypeScript** as a full-stack monorepo.
 
