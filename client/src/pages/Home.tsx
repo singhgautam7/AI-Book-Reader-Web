@@ -95,7 +95,8 @@ export default function Home() {
       setExtractedBook(null); // Clear previous result while loading
 
       try {
-          const res = await fetch("http://localhost:3000/api/extract-article", {
+          const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000";
+          const res = await fetch(`${apiUrl}/api/extract-article`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ url: urlToExtract })
